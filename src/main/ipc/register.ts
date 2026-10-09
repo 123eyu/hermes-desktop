@@ -380,6 +380,8 @@ import {
 } from "../skills";
 import {
   listCronJobs,
+  listCronRuns,
+  getCronRunOutput,
   createCronJob,
   removeCronJob,
   pauseCronJob,
@@ -3583,6 +3585,16 @@ export function registerIpcHandlers(context: IpcContext): void {
     "list-cron-jobs",
     (_event, includeDisabled?: boolean, profile?: string) =>
       listCronJobs(includeDisabled, profile),
+  );
+  ipcMain.handle(
+    "list-cron-runs",
+    (_event, jobId: string, limit?: number, profile?: string) =>
+      listCronRuns(jobId, limit, profile),
+  );
+  ipcMain.handle(
+    "get-cron-run-output",
+    (_event, jobId: string, runId: string, profile?: string) =>
+      getCronRunOutput(jobId, runId, profile),
   );
   ipcMain.handle(
     "create-cron-job",

@@ -529,6 +529,68 @@ describe("Cron SSH fallback", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("lists run history from the dashboard /runs and rejects unsafe job ids", async () => {
+    connModeRef.mode = "remote";
+    dashboardRequestMock.mockReset();
+    dashboardRequestMock.mockResolvedValue({
+      runs: [{ id: "cron_j_1", source: "cron", started_at: 5, preview: "p" }],
+    });
+    const { listCronRuns } = await import("../src/main/cronjobs");
+    const res = await listCronRuns("j1", 500);
+    expect(res.success).toBe(true);
+    expect(res.runs[0]).toMatchObject({ id: "cron_j_1", preview: "p" });
+    expect(dashboardRequestMock.mock.calls[0][1]).toBe(
+      "/api/cron/jobs/j1/runs?limit=100",
+    );
+    dashboardRequestMock.mockClear();
+    expect((await listCronRuns("../etc")).success).toBe(false);
+    expect(dashboardRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("reads an agent run through its session and marks script-only runs as preview only", async () => {
+    connModeRef.mode = "remote";
+    dashboardRequestMock.mockReset();
+    dashboardRequestMock.mockImplementation(
+      async (_c: unknown, path: string) => {
+        if (path.startsWith("/api/sessions/")) {
+          return { messages: [{ role: "assistant", content: "done" }] };
+        }
+        return {
+          runs: [
+            { id: "cron_output:j1:s", source: "cron_output", preview: "head" },
+          ],
+        };
+      },
+    );
+    const { getCronRunOutput } = await import("../src/main/cronjobs");
+    const agent = await getCronRunOutput("j1", "cron_j1_20260101_100000");
+    expect(agent).toMatchObject({ success: true, output: "[assistant]\ndone" });
+    expect(dashboardRequestMock.mock.calls[0][1]).toBe(
+      "/api/sessions/cron_j1_20260101_100000/messages?order=oldest&limit=500",
+    );
+    const script = await getCronRunOutput("j1", "cron_output:j1:s");
+    expect(script).toMatchObject({
+      success: true,
+      output: "head",
+      partial: true,
+    });
+  });
+
+  it("reports run history as unsupported over SSH and on a 404", async () => {
+    const { listCronRuns } = await import("../src/main/cronjobs");
+    connModeRef.mode = "ssh";
+    expect(await listCronRuns("j1")).toMatchObject({ unsupported: true });
+    connModeRef.mode = "remote";
+    dashboardRequestMock.mockReset();
+    dashboardRequestMock.mockImplementation(async () => {
+      throw Object.assign(new Error("Not Found"), { statusCode: 404 });
+    });
+    expect(await listCronRuns("j1")).toMatchObject({
+      success: false,
+      unsupported: true,
+    });
+  });
+
   it("falls back to gateway /api/jobs when the dashboard cron route is unsupported", async () => {
     connModeRef.mode = "remote";
     sshTunnelUrlRef.value = "http://example.com";

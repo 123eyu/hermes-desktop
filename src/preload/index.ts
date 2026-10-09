@@ -1682,6 +1682,40 @@ const hermesAPI = {
   ): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke("resume-cron-job", jobId, profile),
 
+  listCronRuns: (
+    jobId: string,
+    limit?: number,
+    profile?: string,
+  ): Promise<{
+    success: boolean;
+    runs: Array<{
+      id: string;
+      source: string;
+      started_at: number | string | null;
+      ended_at: number | string | null;
+      title: string;
+      preview: string;
+      message_count: number;
+      input_tokens: number | null;
+      output_tokens: number | null;
+      is_active: boolean;
+    }>;
+    error?: string;
+    unsupported?: boolean;
+  }> => ipcRenderer.invoke("list-cron-runs", jobId, limit, profile),
+  getCronRunOutput: (
+    jobId: string,
+    runId: string,
+    profile?: string,
+  ): Promise<{
+    success: boolean;
+    output: string;
+    partial?: boolean;
+    truncated?: boolean;
+    error?: string;
+    unsupported?: boolean;
+  }> => ipcRenderer.invoke("get-cron-run-output", jobId, runId, profile),
+
   triggerCronJob: (
     jobId: string,
     profile?: string,

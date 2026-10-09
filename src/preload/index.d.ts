@@ -1199,6 +1199,39 @@ interface HermesAPI {
     jobId: string,
     profile?: string,
   ) => Promise<{ success: boolean; error?: string }>;
+  listCronRuns: (
+    jobId: string,
+    limit?: number,
+    profile?: string,
+  ) => Promise<{
+    success: boolean;
+    runs: Array<{
+      id: string;
+      source: string;
+      started_at: number | string | null;
+      ended_at: number | string | null;
+      title: string;
+      preview: string;
+      message_count: number;
+      input_tokens: number | null;
+      output_tokens: number | null;
+      is_active: boolean;
+    }>;
+    error?: string;
+    unsupported?: boolean;
+  }>;
+  getCronRunOutput: (
+    jobId: string,
+    runId: string,
+    profile?: string,
+  ) => Promise<{
+    success: boolean;
+    output: string;
+    partial?: boolean;
+    truncated?: boolean;
+    error?: string;
+    unsupported?: boolean;
+  }>;
   triggerCronJob: (
     jobId: string,
     profile?: string,
