@@ -855,11 +855,17 @@ export async function getCronRunOutput(
     try {
       if (runId.startsWith("cron_output:")) {
         // No endpoint returns the saved file's text; the run row carries its
-        // preview, so say plainly that this is only the beginning.
+        // preview, which is all the server exposes.
         const runs = await listCronRuns(jobId, 100, profile);
         const run = runs.runs.find((r) => r.id === runId);
         if (!run) return { success: false, output: "", error: "Run not found" };
-        return { success: true, output: run.preview, partial: true };
+        // The server cuts previews at 180 chars and ends a cut one with "…",
+        // so a shorter preview is the whole file, not just its beginning.
+        return {
+          success: true,
+          output: run.preview,
+          partial: run.preview.endsWith("…"),
+        };
       }
       const data = await remoteDashboardRequestJson<{
         messages?: Array<Record<string, unknown>>;

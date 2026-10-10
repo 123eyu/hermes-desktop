@@ -557,7 +557,16 @@ describe("Cron SSH fallback", () => {
         }
         return {
           runs: [
-            { id: "cron_output:j1:s", source: "cron_output", preview: "head" },
+            {
+              id: "cron_output:j1:s",
+              source: "cron_output",
+              preview: "short whole file",
+            },
+            {
+              id: "cron_output:j1:t",
+              source: "cron_output",
+              preview: "cut off…",
+            },
           ],
         };
       },
@@ -568,10 +577,15 @@ describe("Cron SSH fallback", () => {
     expect(dashboardRequestMock.mock.calls[0][1]).toBe(
       "/api/sessions/cron_j1_20260101_100000/messages?order=oldest&limit=500",
     );
-    const script = await getCronRunOutput("j1", "cron_output:j1:s");
-    expect(script).toMatchObject({
+    // A preview shorter than the server's cut-off is the whole file.
+    expect(await getCronRunOutput("j1", "cron_output:j1:s")).toMatchObject({
       success: true,
-      output: "head",
+      output: "short whole file",
+      partial: false,
+    });
+    // One ending in the server's ellipsis was truncated.
+    expect(await getCronRunOutput("j1", "cron_output:j1:t")).toMatchObject({
+      output: "cut off…",
       partial: true,
     });
   });
