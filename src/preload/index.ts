@@ -1875,8 +1875,9 @@ const hermesAPI = {
       auth?: string;
     },
     profile?: string,
+    target?: ProfileEditorTarget,
   ): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke("add-mcp-server", input, profile),
+    ipcRenderer.invoke("add-mcp-server", input, profile, target),
   updateMcpServer: (
     originalName: string,
     input: {

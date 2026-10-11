@@ -1,3 +1,5 @@
+import type { ProfileEditorTarget } from "../shared/profile-editor-target";
+import { resolveProfileEditorTarget } from "./profile-editor-target";
 import { execFile } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { profilePaths, safeWriteFile } from "./utils";
@@ -727,12 +729,24 @@ export async function listMcpServers(
 export async function addMcpServer(
   input: McpServerInput,
   profile?: string,
+  target?: ProfileEditorTarget,
 ): Promise<McpOperationResult> {
   const validated = validateServerInput(input);
   if (!validated.ok) return { success: false, error: validated.error };
 
   try {
-    if (isRemoteMode()) {
+    if (target) {
+      const captured = resolveProfileEditorTarget(profile, target);
+      if (captured.connection.mode !== "local") {
+        return {
+          success: false,
+          error:
+            "Captured MCP installation is available only on this local machine.",
+        };
+      }
+      profile = captured.profile;
+    }
+    if (!target && isRemoteMode()) {
       await mcpApi(
         "/api/mcp/servers",
         {

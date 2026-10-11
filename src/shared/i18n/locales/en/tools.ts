@@ -143,9 +143,9 @@ export default {
   mcpInstall: "Install",
   mcpInstallWorking: "Installing…",
   mcpInstalledStatus: "Installed",
-  graphnosisMcpTitle: "Graphnosis memory (recommended)",
+  graphnosisMcpTitle: "Graphnosis memory (optional)",
   graphnosisMcpDescription:
-    "Install the Graphnosis MCP server for recall, remember, edit, and cross-engram search. Requires the Graphnosis app running with cortex unlocked.",
+    "Register Graphnosis MCP for this local profile. Requires Node.js and the Graphnosis app running on this machine with cortex unlocked. The relay downloads when Hermes starts it.",
   graphnosisMcpInstall: "Install Graphnosis MCP",
   graphnosisMcpDownload: "Get Graphnosis app",
 } as const;

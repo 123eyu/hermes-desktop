@@ -1,3 +1,4 @@
+import { GraphnosisMcp } from "./GraphnosisMcp";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useI18n } from "../../components/useI18n";
 import { Wrench, Plug, Puzzle, Search, X } from "../../assets/icons";
@@ -594,35 +595,9 @@ function Tools({
       })
     : mcpServers;
 
-  const graphnosisMcpInstalled = mcpServers.some((s) => s.name === "graphnosis");
-
-  async function handleInstallGraphnosisMcp(): Promise<void> {
-    setMcpError("");
-    setMcpMessage("");
-    setMcpBusy("install:graphnosis");
-    try {
-      const result = await window.hermesAPI.addMcpServer(
-        {
-          name: "graphnosis",
-          type: "stdio",
-          command: "npx",
-          args: ["-y", "@graphnosis/mcp-relay", "${HOME}/.graphnosis/mcp.sock"],
-          env: {},
-        },
-        profile,
-      );
-      if (!result.success) {
-        setMcpError(result.error || t("tools.mcpInstallFailed"));
-        return;
-      }
-      setMcpMessage(t("tools.mcpInstalled"));
-      await reloadMcp();
-    } catch (err) {
-      setMcpError((err as Error).message || t("tools.mcpInstallFailed"));
-    } finally {
-      setMcpBusy("");
-    }
-  }
+  const graphnosisMcpInstalled = mcpServers.some(
+    (s) => s.name === "graphnosis",
+  );
 
   if (loading) {
     return (
@@ -767,40 +742,7 @@ function Tools({
               {mcpMessage && <div className="tools-success">{mcpMessage}</div>}
 
               {!graphnosisMcpInstalled && (
-                <div className="tools-graphnosis-promo">
-                  <div>
-                    <div className="tools-card-label">
-                      {t("tools.graphnosisMcpTitle")}
-                    </div>
-                    <div className="tools-card-description">
-                      {t("tools.graphnosisMcpDescription")}
-                    </div>
-                  </div>
-                  <div className="tools-graphnosis-promo-actions">
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      disabled={mcpBusy === "install:graphnosis"}
-                      onClick={() => void handleInstallGraphnosisMcp()}
-                    >
-                      <TinyIcon kind="install" />
-                      {mcpBusy === "install:graphnosis"
-                        ? t("tools.mcpInstallWorking")
-                        : t("tools.graphnosisMcpInstall")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() =>
-                        void window.hermesAPI.openExternal(
-                          "https://graphnosis.com/download",
-                        )
-                      }
-                    >
-                      {t("tools.graphnosisMcpDownload")}
-                    </button>
-                  </div>
-                </div>
+                <GraphnosisMcp profile={profile} onInstalled={reloadMcp} />
               )}
 
               {mcpServers.length === 0 ? (

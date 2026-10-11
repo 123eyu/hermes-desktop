@@ -55,3 +55,6 @@ This directory defines the high-level concepts, business logic, and architecture
 - [[remote-providers]] — Remote provider credential ownership and supported dashboard operations.
 
 - [[remote-profiles]] — Remote profile list/create, desktop selection ownership and Agents authority lifetimes.
+
+- [[external-memory-providers]] — Optional external memory discovery and Local Graphnosis registration.
+- [[external-memory-providers-tests]] — Isolated discovery and captured-registration tests.

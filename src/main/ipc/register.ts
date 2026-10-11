@@ -3911,8 +3911,12 @@ export function registerIpcHandlers(context: IpcContext): void {
   );
   ipcMain.handle(
     "add-mcp-server",
-    (_event, input: McpServerInput, profile?: string) =>
-      addMcpServer(input, profile),
+    (
+      _event,
+      input: McpServerInput,
+      profile?: string,
+      target?: ProfileEditorTarget,
+    ) => addMcpServer(input, profile, target),
   );
   ipcMain.handle(
     "update-mcp-server",
