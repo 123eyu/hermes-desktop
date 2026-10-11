@@ -44,6 +44,8 @@ export default {
   activating: "Aktywowanie...",
   activate: "Aktywuj",
   providers: {
+    recall:
+      "Pamięć SQLite z wielopoziomowym wyszukiwaniem i opcjonalnymi lokalnymi reprezentacjami wektorowymi (zewnętrzna wtyczka, bez klucza API dostawcy)",
     honcho:
       "AI-natywne modelowanie użytkownika między sesjami z dialektycznym Q&A i wyszukiwaniem semantycznym",
     hindsight:

@@ -46,6 +46,8 @@ export default {
   activating: "Activando...",
   activate: "Activar",
   providers: {
+    recall:
+      "Memoria SQLite con recuperación por niveles y representaciones vectoriales locales opcionales (plugin externo, sin clave API del proveedor)",
     honcho:
       "Modelado de usuarios nativo para IA entre sesiones con preguntas y respuestas dialécticas y búsqueda semántica",
     hindsight:

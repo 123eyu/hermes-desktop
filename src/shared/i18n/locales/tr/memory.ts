@@ -46,6 +46,8 @@ export default {
   activating: "Etkinleştiriliyor...",
   activate: "Etkinleştir",
   providers: {
+    recall:
+      "Katmanlı arama ve isteğe bağlı yerel vektör temsilleri sunan SQLite belleği (harici eklenti, sağlayıcı API anahtarı gerekmez)",
     honcho:
       "Yapay zeka odaklı oturumlar arası kullanıcı modelleme, diyalektik soru-cevap ve anlamsal arama",
     hindsight: "Bilgi grafiği ve çoklu strateji getirme ile uzun süreli bellek",

@@ -47,6 +47,8 @@ export default {
   activating: "Activating...",
   activate: "Activate",
   providers: {
+    recall:
+      "SQLite memory with tiered retrieval and optional local embeddings (external plugin, no provider API key)",
     honcho:
       "AI-native cross-session user modeling with dialectic Q&A and semantic search",
     hindsight:

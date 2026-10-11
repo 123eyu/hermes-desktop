@@ -55,6 +55,26 @@ Actual captured writes remain parseable with start/end markers, comments, CRLF a
 
 Multiple documents, content after a terminator, duplicate keys, invalid syntax and unsupported MCP root layouts fail before any disposable profile config can change.
 
+## Recall Local and SSH identities
+
+Legacy and current Recall plugin directory names receive localized metadata in Local and generated SSH discovery, with the current named profile active and no API-key fields.
+
+## Recall actual installer configuration
+
+The actual Local installer reads the hyphenated current provider identity from the memory section, includes a separate legacy install and never borrows default-home plugin files.
+
+## Recall renderer links and routing
+
+The actual provider cards use fixed official HTTPS links for both names, expose no API-key fields and pass the captured profile target on activation. Inherited object keys cannot become provider URLs.
+
+## Remote memory provider authority
+
+Remote discovery uses only the selected server's schema and active configuration; unsupported Desktop metadata never creates a provider option or configuration write.
+
+## Recall bundled metadata
+
+A legacy bundled Recall plugin receives its localized description rather than a raw untranslated provider name, covering the original discovery-review gap.
+
 ## Provider-only discovery failure
 
 An SSH discovery failure leaves successful memory, user text and Soul usable under the captured target while the Providers tab exposes its unavailable capability without stale activation controls.
@@ -74,3 +94,11 @@ The actual Welcome component offers setup and connection actions before the opti
 ## Required configuration read failure
 
 A required profile configuration read failure still blocks memory edits even when discovery succeeds; only discovery capability errors are isolated to the Providers tab.
+
+## Recall localized descriptions
+
+Both Recall identities render translated descriptions in every complete non-English Memory locale through the actual I18nProvider; copied English descriptions and untranslated fallback are rejected.
+
+## Recall partial locale fallback
+
+The deliberately partial Persian resources retain the updated English Recall description without inventing a complete Memory translation bundle.

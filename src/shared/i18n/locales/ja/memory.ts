@@ -44,6 +44,8 @@ export default {
   activating: "有効化中...",
   activate: "有効化",
   providers: {
+    recall:
+      "階層型検索とオプションのローカル埋め込みを備えたSQLiteメモリ（外部プラグイン、プロバイダーのAPIキー不要）",
     honcho:
       "弁証法的 Q&A と意味検索を備えた AI ネイティブのセッション横断ユーザーモデリング",
     hindsight: "ナレッジグラフと複数戦略の検索を備えた長期メモリ",
