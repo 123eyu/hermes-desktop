@@ -35,6 +35,7 @@ export default {
   fireworks: "Fireworks",
   cerebras: "Cerebras",
   requesty: "Requesty",
+  api_route: "API Route",
   mistral: "Mistral",
   // Theme
   themeSystem: "Sistem",
@@ -86,6 +87,8 @@ export default {
   cerebrasApiKey: "Cerebras API Key",
   cerebrasHint: "Inferensi sangat cepat di hardware Cerebras",
   requestyApiKey: "Requesty API Key",
+  apiRouteApiKey: "API Route API Key",
+  apiRouteHint: "Gateway multi-model yang kompatibel dengan OpenAI",
   requestyHint: "Gateway multi-model yang kompatibel dengan OpenAI",
   mistralApiKey: "Mistral API Key",
   mistralHint: "Model Mistral dan Codestral",

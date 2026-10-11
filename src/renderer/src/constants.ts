@@ -91,6 +91,7 @@ export const PROVIDERS = {
     atlascloud: "AtlasCloud",
     novita: "NovitaAI",
     requesty: "Requesty",
+    api_route: "API Route",
     cheaperinference: "Cheaper Inference",
     openrouter: "constants.openrouterName",
     aimlapi: "constants.aimlapiName",
@@ -391,6 +392,7 @@ export const OPENAI_COMPATIBLE_BASE_URLS: Record<string, string> = {
   atlascloud: "https://api.atlascloud.ai/v1",
   novita: "https://api.novita.ai/openai/v1",
   requesty: "https://router.requesty.ai/v1",
+  api_route: "https://global.api-route.com/v1",
   cheaperinference: "https://api.cheaperinference.com/v1",
   perplexity: "https://api.perplexity.ai",
   lmstudio: "http://localhost:1234/v1",
@@ -510,6 +512,13 @@ export const LOCAL_PRESETS: LocalPreset[] = [
     baseUrl: "https://api.novita.ai/openai/v1",
     group: "remote",
     envKey: "NOVITA_API_KEY",
+  },
+  {
+    id: "api_route",
+    name: "constants.api_route",
+    baseUrl: "https://global.api-route.com/v1",
+    group: "remote",
+    envKey: "API_ROUTE_API_KEY",
   },
   {
     id: "requesty",
@@ -898,6 +907,12 @@ export const SETTINGS_SECTIONS: SectionDef[] = [
         label: "constants.novitaApiKey",
         type: "password",
         hint: "constants.novitaHint",
+      },
+      {
+        key: "API_ROUTE_API_KEY",
+        label: "constants.apiRouteApiKey",
+        type: "password",
+        hint: "constants.apiRouteHint",
       },
       {
         key: "REQUESTY_API_KEY",

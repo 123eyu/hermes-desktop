@@ -302,3 +302,41 @@ Strict hostname entries precede legacy URL-substring mappings, so credentials or
 Requesty CLI fallback accepts the selected profile's enumerated vault key without writing it to plaintext. Profile-file and process values retain precedence over the vault.
 
 [[src/main/hermes.ts#sendMessageViaCli]] reuses the single secret-provider enumeration for the host-derived key, then supplies both `REQUESTY_API_KEY` and the legacy `OPENAI_API_KEY` to the child. Spawn regressions cover primary and regional endpoints plus credential precedence.
+
+## API Route provider preset
+
+API Route is an optional paid OpenAI-compatible gateway preset, with a dedicated API-key field and authenticated model discovery.
+
+Select **Local / OpenAI-Compatible** during setup, then **API Route** under remote APIs. Get a key from https://www.api-route.com/api-keys, paste it, fetch models and select a chat model available to your account. The preset uses https://global.api-route.com/v1 and stores models as `custom` with that base URL. Model IDs are preserved. Pricing and setup are at https://www.api-route.com/pricing and https://www.api-route.com/docs/quickstart.
+
+The key is stored as `API_ROUTE_API_KEY`, matching Hermes Agent's hostname-derived variable (the hyphen in `api-route` becomes an underscore). The existing CLI path forwards the selected endpoint's resolved key to this variable and the legacy `OPENAI_API_KEY` slot; no native agent provider id is required.
+
+### Credential host boundary
+
+API Route key lookup uses the parsed HTTP(S) hostname and accepts only global.api-route.com. URL credentials, paths, lookalike hosts and unrelated subdomains cannot identify the provider.
+
+[[src/shared/url-key-map.ts#matchesProviderUrl]] applies this boundary to shared key lookup and runtime hydration. Tests preserve valid ports, credentials and trailing DNS dots while rejecting userinfo spoofs and misleading paths.
+
+### Installer readiness
+
+API Route configurations stored as custom or auto resolve to their dedicated key at the configured endpoint, so a saved key is recognized on restart.
+
+[[src/main/installer.ts#expectedEnvKeyForModel]] uses the same strict hostname boundary. Tests cover the supported endpoint and reject misleading paths and lookalike hosts.
+
+### Setup persistence
+
+The API Route preset keeps its endpoint, credential field, discovery URL and display identity consistent after a model is saved as custom.
+
+Registry tests verify the preset against both endpoint registries, the compatible runtime provider set, the dedicated settings field and reverse branding.
+
+### Vault credentials reach CLI
+
+API Route CLI fallback forwards the selected profile's resolved key from its vault, profile or process environment using the existing compatible-provider path.
+
+[[src/main/hermes.ts#sendMessageViaCli]] supplies API_ROUTE_API_KEY and the legacy OPENAI_API_KEY slot. Tests verify credential precedence, URL credentials and paths, and a single vault enumeration.
+
+### Rendered setup save and reload
+
+The real Setup form saves API Route credentials and the chosen custom model to its selected profile, then real config readers reopen the files without changing another profile.
+
+An isolated fixture selects the preset and enters a model ID and fake key. Actual config writers persist `custom`, the unchanged model ID, the endpoint and `API_ROUTE_API_KEY`; fresh readers recover them and reverse branding remains API Route.
