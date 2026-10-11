@@ -7,6 +7,7 @@ import type {
 import type { ProfileEditorTarget } from "../shared/profile-editor-target";
 import type { ProviderRequestTarget } from "../shared/provider-target";
 import type { AppLocale } from "../shared/i18n/types";
+import type { BotGroupAPI } from "../shared/bot-groups";
 import type { Attachment } from "../shared/attachments";
 import type {
   RemoteGatewayAction,
@@ -276,6 +277,7 @@ interface KanbanCreateTaskInput {
 }
 
 interface HermesAPI {
+  botGroups: BotGroupAPI;
   // Installation
   checkInstall: () => Promise<InstallStatus>;
   verifyInstall: () => Promise<boolean>;

@@ -8,6 +8,7 @@ import type { ProfileEditorTarget } from "../shared/profile-editor-target";
 import type { ProviderRequestTarget } from "../shared/provider-target";
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { AppLocale } from "../shared/i18n/types";
+import type { BotGroupAPI } from "../shared/bot-groups";
 import type { Attachment } from "../shared/attachments";
 import type {
   RemoteGatewayAction,
@@ -142,6 +143,13 @@ const electronAPI = {
 };
 
 const hermesAPI = {
+  botGroups: ((connectionId, operation, params = {}) =>
+    ipcRenderer.invoke(
+      "bot-groups-request",
+      connectionId,
+      operation,
+      params,
+    )) as BotGroupAPI,
   // Installation
   checkInstall: (): Promise<{
     installed: boolean;
