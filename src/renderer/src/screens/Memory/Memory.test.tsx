@@ -197,3 +197,138 @@ it("does not refresh or surface an old entry mutation after a profile switch", a
   expect(screen.queryByText("A write failed")).toBeNull();
   expect(window.hermesAPI.readMemory).toHaveBeenCalledTimes(2);
 });
+
+// @lat: [[external-memory-providers-tests#Provider-only discovery failure]]
+it("keeps SSH memory, user text and Soul available when only provider discovery fails", async () => {
+  const fixture = profileEditorFixture("ssh");
+  mockApi(
+    memoryData({
+      user: {
+        content: "SSH user text",
+        exists: true,
+        lastModified: null,
+        charCount: 13,
+        charLimit: 1375,
+      },
+    }),
+  );
+  Object.assign(window.hermesAPI, fixture.api, {
+    getConfig: vi.fn().mockResolvedValue("graphnosis"),
+    discoverMemoryProviders: vi
+      .fn()
+      .mockRejectedValue(new Error("Managed SSH provider home is unavailable")),
+    addMemoryEntry: vi.fn().mockResolvedValue({ success: true }),
+  });
+  render(<Memory profile="work" />);
+  const add = await screen.findByText("memory.addMemory");
+  expect(add.closest("button")).toBeEnabled();
+  fireEvent.click(add);
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "new SSH memory" },
+  });
+  fireEvent.click(screen.getByText("Save"));
+  await waitFor(() =>
+    expect(window.hermesAPI.addMemoryEntry).toHaveBeenCalledWith(
+      "new SSH memory",
+      "work",
+      expect.objectContaining({ profile: "work", mode: "ssh" }),
+    ),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "memory.userProfile" }));
+  await waitFor(() =>
+    expect(screen.getByDisplayValue("SSH user text")).toBeEnabled(),
+  );
+  fireEvent.click(screen.getByText("soul.title"));
+  expect(screen.getByTestId("soul")).toBeTruthy();
+  fireEvent.click(screen.getByText("memory.providersTitle"));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Managed SSH provider home is unavailable",
+  );
+  expect(screen.getByText("graphnosis")).toBeTruthy();
+  expect(screen.queryByText("memory.noProvidersFound")).toBeNull();
+  expect(screen.queryByText("memory.activate")).toBeNull();
+});
+
+// @lat: [[external-memory-providers-tests#Provider discovery retry]]
+it("clears a failed refresh's provider list and recovers without losing the memory snapshot", async () => {
+  mockApi(memoryData());
+  const graphnosis = [
+    {
+      name: "graphnosis",
+      description: "memory.providers.graphnosis",
+      envVars: [],
+      installed: true,
+      active: false,
+    },
+  ];
+  Object.assign(window.hermesAPI, {
+    discoverMemoryProviders: vi
+      .fn()
+      .mockResolvedValueOnce(graphnosis)
+      .mockRejectedValueOnce(new Error("Discovery unavailable"))
+      .mockResolvedValue(graphnosis),
+  });
+  render(<Memory profile="work" />);
+  await screen.findByText("memory.addMemory");
+  fireEvent.click(screen.getByText("memory.providersTitle"));
+  expect(await screen.findByText("memory.activate")).toBeEnabled();
+  fireEvent.click(document.querySelector(".memory-header button")!);
+  await screen.findByText("Discovery unavailable");
+  expect(screen.queryByText("memory.activate")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "memory.agentMemory" }));
+  expect(screen.getByText("memory.addMemory").closest("button")).toBeEnabled();
+  fireEvent.click(screen.getByText("memory.providersTitle"));
+  fireEvent.click(document.querySelector(".memory-header button")!);
+  expect(await screen.findByText("memory.activate")).toBeEnabled();
+  expect(screen.queryByText("Discovery unavailable")).toBeNull();
+});
+
+// @lat: [[external-memory-providers-tests#Delayed provider failure scope]]
+it("ignores an old discovery failure after the captured profile changes", async () => {
+  let rejectOld!: (reason: Error) => void;
+  const old = new Promise<never>((_resolve, reject) => {
+    rejectOld = reject;
+  });
+  mockApi(memoryData());
+  Object.assign(window.hermesAPI, {
+    discoverMemoryProviders: vi.fn().mockImplementation((profile?: string) =>
+      profile === "a"
+        ? old
+        : Promise.resolve([
+            {
+              name: "graphnosis",
+              description: "memory.providers.graphnosis",
+              envVars: [],
+              installed: true,
+              active: false,
+            },
+          ]),
+    ),
+  });
+  const view = render(<Memory profile="a" />);
+  await waitFor(() =>
+    expect(window.hermesAPI.discoverMemoryProviders).toHaveBeenCalled(),
+  );
+  view.rerender(<Memory profile="b" />);
+  await screen.findByText("memory.addMemory");
+  fireEvent.click(screen.getByText("memory.providersTitle"));
+  expect(await screen.findByText("memory.activate")).toBeEnabled();
+  await act(async () => rejectOld(new Error("A discovery unavailable")));
+  expect(screen.queryByText("A discovery unavailable")).toBeNull();
+  expect(screen.getByText("memory.activate")).toBeEnabled();
+});
+
+// @lat: [[external-memory-providers-tests#Required configuration read failure]]
+it("keeps the configuration read failure blocking edits even when discovery succeeds", async () => {
+  mockApi(memoryData());
+  Object.assign(window.hermesAPI, {
+    getConfig: vi
+      .fn()
+      .mockRejectedValue(new Error("Configuration unavailable")),
+  });
+  render(<Memory profile="work" />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Configuration unavailable",
+  );
+  expect(screen.queryByText("memory.addMemory")).toBeNull();
+});

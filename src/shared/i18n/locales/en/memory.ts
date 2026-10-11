@@ -18,6 +18,8 @@ export default {
     "e.g. User prefers TypeScript over JavaScript. Always use strict mode.",
   userProfilePlaceholder:
     "e.g. Name: Alex. Senior developer. Prefers concise answers. Uses macOS with zsh. Timezone: PST.",
+  providerDiscoveryUnavailable: "Memory provider discovery is unavailable.",
+  configuredProvider: "Configured provider",
   noProvidersFound: "No memory providers found in this installation.",
   openProviderWebsite: "Open provider website",
   noMemoriesYet:

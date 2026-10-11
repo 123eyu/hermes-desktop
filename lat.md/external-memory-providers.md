@@ -31,3 +31,13 @@ The optional registration validates one YAML mapping before and after insertion,
 [[src/main/yaml-document.ts#splitSingleYamlDocument]] bounds the mapping separately from explicit document markers. The existing production `js-yaml` parser is declared directly for duplicate-key and syntax checks; no parser reserialization changes the original text.
 
 Plain MCP mapping headers are supported, including empty mappings and comments. Flow maps, quoted root keys, anchors on the MCP root, multiple documents and malformed YAML require manual configuration. The legacy manual MCP writer retains its existing behavior.
+
+## Discovery errors stay with providers
+
+Unavailable provider discovery does not discard successful memory and configuration reads. Entries, user text and Soul retain their captured target; the Providers tab shows the discovery error and known configured provider.
+
+The failed discovery clears its previous list instead of presenting stale activation controls or claiming no plugins exist. Refresh retries discovery. Memory or configuration read errors still disable positional edits, and every reply retains the existing target and revision checks.
+
+## Optional onboarding stays reachable
+
+Local setup, SSH and Remote actions precede the optional Graphnosis card. Onboarding scrolls vertically within the application content at short supported window heights instead of clipping setup controls.
