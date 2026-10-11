@@ -38,6 +38,8 @@ Recall metadata recognizes legacy `recall` and the current external plugin name 
 
 The current plugin is installed separately with the Agent plugin manager; installing its Python wheel alone does not create the flat plugin directory. Its optional embeddings use a separately configured local endpoint, while database paths are resolved by the plugin under the active profile.
 
+Complete Memory locales translate both provider names through the same Recall description: SQLite tiered retrieval, optional local embeddings and no provider API key. The intentionally partial Persian resource retains English fallback.
+
 Desktop does not install Recall dependencies, create its database or rewrite existing provider selection. Remote provider identities are accepted only when advertised by the selected server's schema or active configuration.
 
 ## Discovery errors stay with providers

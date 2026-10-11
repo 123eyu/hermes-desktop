@@ -94,3 +94,11 @@ The actual Welcome component offers setup and connection actions before the opti
 ## Required configuration read failure
 
 A required profile configuration read failure still blocks memory edits even when discovery succeeds; only discovery capability errors are isolated to the Providers tab.
+
+## Recall localized descriptions
+
+Both Recall identities render translated descriptions in every complete non-English Memory locale through the actual I18nProvider; copied English descriptions and untranslated fallback are rejected.
+
+## Recall partial locale fallback
+
+The deliberately partial Persian resources retain the updated English Recall description without inventing a complete Memory translation bundle.

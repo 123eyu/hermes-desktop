@@ -41,7 +41,7 @@ export default {
   activate: "啟用",
   providers: {
     recall:
-      "Zero-LLM tiered memory with automatic forgetting (SQLite, no API key)",
+      "以 SQLite 為基礎的記憶，支援分層檢索及可選的本機嵌入（外部外掛，無需供應商 API 金鑰）",
     honcho: "基於 AI 的跨工作階段使用者畫像建模，支援對話式問答和語義搜尋",
     hindsight: "長期記憶，具有知識圖譜和多策略檢索功能",
     mem0: "伺服器端 LLM 事實擷取，支援語義搜尋和自動去除重複",

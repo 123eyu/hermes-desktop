@@ -48,7 +48,7 @@ export default {
   activate: "Aktifkan",
   providers: {
     recall:
-      "Zero-LLM tiered memory with automatic forgetting (SQLite, no API key)",
+      "Memori SQLite dengan pengambilan bertingkat dan embedding lokal opsional (plugin eksternal, tanpa kunci API penyedia)",
     honcho:
       "Pemodelan pengguna lintas sesi berbasis AI dengan Q&A dialektik dan pencarian semantik",
     hindsight:

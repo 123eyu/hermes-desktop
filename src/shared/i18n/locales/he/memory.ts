@@ -43,7 +43,7 @@ export default {
   activate: "הפעלה",
   providers: {
     recall:
-      "Zero-LLM tiered memory with automatic forgetting (SQLite, no API key)",
+      "זיכרון SQLite עם אחזור מדורג והטמעות מקומיות אופציונליות (תוסף חיצוני, ללא מפתח API של הספק)",
     honcho:
       "מידול משתמשים מבוסס AI חוצה-סשנים עם שאלות ותשובות דיאלקטיות וחיפוש סמנטי",
     hindsight: "זיכרון ארוך-טווח עם גרף ידע ושליפה רב-אסטרטגית",
