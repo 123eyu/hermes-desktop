@@ -395,6 +395,7 @@ const PROVIDER_ENV_KEYS: Record<string, string> = {
 const URL_TO_ENV_KEY: Array<[RegExp, string, boolean?]> = [
   // Strict hosts take precedence over legacy URL-substring mappings.
   [/(?:^|\.)requesty\.ai$/i, "REQUESTY_API_KEY", true],
+  [/^api\.cheaperinference\.com$/i, "CHEAPERINFERENCE_API_KEY", true],
   [/openrouter\.ai/i, "OPENROUTER_API_KEY"],
   [/anthropic\.com/i, "ANTHROPIC_API_KEY"],
   [/openai\.com/i, "OPENAI_API_KEY"],

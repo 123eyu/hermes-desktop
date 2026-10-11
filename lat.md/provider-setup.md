@@ -239,6 +239,26 @@ Novita is available as a remote OpenAI-compatible preset, with a dedicated API-k
 
 The desktop stores the model as `custom` at `https://api.novita.ai/openai/v1`. Setup, the configured-provider picker, installer readiness, and runtime key lookup use `NOVITA_API_KEY`; provider branding identifies the endpoint as NovitaAI. The shared URL mapping is covered alongside the other supported commercial endpoints.
 
+## Cheaper Inference provider preset
+
+Cheaper Inference is available as a remote OpenAI-compatible preset, with a dedicated API-key field. Each model costs 15–60% less than the list price of its lab.
+
+The desktop stores the model as `custom` at `https://api.cheaperinference.com/v1`. Setup, the provider picker, installer readiness and key lookup use `CHEAPERINFERENCE_API_KEY`. Hermes Agent derives the same name from the endpoint host. The shared URL mapping is covered alongside the other supported commercial endpoints.
+
+### Credential host boundary
+
+Cheaper Inference key lookup matches the parsed HTTP(S) hostname exactly. Credentials, ports and paths do not identify the provider, so valid credential-bearing URLs retain their key and unrelated hosts cannot select it through userinfo.
+
+Strict hostname entries precede legacy URL-substring mappings, so credentials or paths naming another vendor cannot shadow the Cheaper Inference host.
+
+[[src/shared/url-key-map.ts#matchesProviderUrl]] applies this boundary to shared lookup, runtime environment hydration and installer readiness. Tests cover valid credentials and default ports, DNS trailing dots, lookalikes and userinfo spoofs.
+
+### Vault credentials reach CLI
+
+Cheaper Inference CLI fallback accepts the selected profile's enumerated vault key without writing it to plaintext. Profile-file and process values retain precedence over the vault.
+
+[[src/main/hermes.ts#sendMessageViaCli]] reuses the single secret-provider enumeration for the host-derived key, then supplies both `CHEAPERINFERENCE_API_KEY` and the legacy `OPENAI_API_KEY` to the child. Spawn regressions cover URL credentials, default ports and credential precedence.
+
 ## Auxiliary credential ownership
 
 Auxiliary credentials belong to the selected provider and endpoint. Switching either clears stale task-level secrets and pointers; model-only changes preserve them.

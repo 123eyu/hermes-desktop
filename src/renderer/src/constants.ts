@@ -91,6 +91,7 @@ export const PROVIDERS = {
     atlascloud: "AtlasCloud",
     novita: "NovitaAI",
     requesty: "Requesty",
+    cheaperinference: "Cheaper Inference",
     openrouter: "constants.openrouterName",
     aimlapi: "constants.aimlapiName",
     anthropic: "constants.anthropicName",
@@ -390,6 +391,7 @@ export const OPENAI_COMPATIBLE_BASE_URLS: Record<string, string> = {
   atlascloud: "https://api.atlascloud.ai/v1",
   novita: "https://api.novita.ai/openai/v1",
   requesty: "https://router.requesty.ai/v1",
+  cheaperinference: "https://api.cheaperinference.com/v1",
   perplexity: "https://api.perplexity.ai",
   lmstudio: "http://localhost:1234/v1",
   atomicchat: "http://localhost:1337/v1",
@@ -515,6 +517,13 @@ export const LOCAL_PRESETS: LocalPreset[] = [
     baseUrl: "https://router.requesty.ai/v1",
     group: "remote",
     envKey: "REQUESTY_API_KEY",
+  },
+  {
+    id: "cheaperinference",
+    name: "constants.cheaperinference",
+    baseUrl: "https://api.cheaperinference.com/v1",
+    group: "remote",
+    envKey: "CHEAPERINFERENCE_API_KEY",
   },
   {
     id: "mistral",
@@ -895,6 +904,12 @@ export const SETTINGS_SECTIONS: SectionDef[] = [
         label: "constants.requestyApiKey",
         type: "password",
         hint: "constants.requestyHint",
+      },
+      {
+        key: "CHEAPERINFERENCE_API_KEY",
+        label: "constants.cheaperinferenceApiKey",
+        type: "password",
+        hint: "constants.cheaperinferenceHint",
       },
       {
         key: "MISTRAL_API_KEY",

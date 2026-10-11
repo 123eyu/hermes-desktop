@@ -25,6 +25,7 @@ export const PROVIDER_BASE_URLS: Record<string, string> = {
   atlascloud: "https://api.atlascloud.ai/v1",
   novita: "https://api.novita.ai/openai/v1",
   requesty: "https://router.requesty.ai/v1",
+  cheaperinference: "https://api.cheaperinference.com/v1",
   cerebras: "https://api.cerebras.ai/v1",
   perplexity: "https://api.perplexity.ai",
   huggingface: "https://router.huggingface.co/v1",

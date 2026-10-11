@@ -20,6 +20,32 @@ import { hostDerivedEnvKeyForUrl } from "../src/main/host-derived-env";
  */
 
 describe("URL_KEY_MAP", () => {
+  // @lat: [[provider-setup#Cheaper Inference provider preset#Credential host boundary]]
+  it.each([
+    ["https://user:pass@api.cheaperinference.com:443/v1", true],
+    ["https://API.CHEAPERINFERENCE.COM:443/v1", true],
+    ["api.cheaperinference.com/v1", true],
+    ["https://api.cheaperinference.com.:443/v1", true],
+    ["https://openai.com:password@api.cheaperinference.com/v1", true],
+    ["https://api.cheaperinference.com/v1/api.openai.com", true],
+    ["https://api.cheaperinference.com/api.deepseek.com/v1", true],
+    ["https://api.cheaperinference.com:443@evil.example/v1", false],
+    ["https://user:pass@api.cheaperinference.com.attacker.example/v1", false],
+    ["https://evil.example/api.cheaperinference.com/v1", false],
+    ["ftp://api.cheaperinference.com/v1", false],
+  ])(
+    "resolves Cheaper Inference credentials only for the parsed HTTP host %s",
+    (url, known) => {
+      expect(expectedEnvKeyForUrl(url)).toBe(
+        known ? "CHEAPERINFERENCE_API_KEY" : CUSTOM_API_KEY_ENV,
+      );
+      expect(isKnownProviderUrl(url)).toBe(known);
+      expect(hostDerivedEnvKeyForUrl(url)).toBe(
+        known ? "CHEAPERINFERENCE_API_KEY" : null,
+      );
+    },
+  );
+
   // @lat: [[provider-setup#Requesty provider preset#Credential host boundary]]
   it.each([
     ["https://user:pass@router.requesty.ai:443/v1", true],
@@ -63,6 +89,7 @@ describe("URL_KEY_MAP", () => {
       "https://api.novita.ai/openai/v1": "NOVITA_API_KEY",
       "https://router.requesty.ai/v1": "REQUESTY_API_KEY",
       "https://router.eu.requesty.ai/v1": "REQUESTY_API_KEY",
+      "https://api.cheaperinference.com/v1": "CHEAPERINFERENCE_API_KEY",
     };
     for (const [url, envKey] of Object.entries(expected)) {
       expect(expectedEnvKeyForUrl(url)).toBe(envKey);
