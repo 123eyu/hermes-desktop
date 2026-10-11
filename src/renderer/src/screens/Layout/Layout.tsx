@@ -1158,7 +1158,16 @@ function Layout({
 
           {visitedViews.has("schedules") && (
             <div style={paneStyle("schedules")}>
-              <Schedules profile={activeProfile} />
+              <Schedules
+                key={JSON.stringify([
+                  connectionId,
+                  activeProfile,
+                  profileTarget?.scopeToken ??
+                    profileSettings.current.scopeToken,
+                ])}
+                connectionId={connectionId}
+                profile={activeProfile}
+              />
             </div>
           )}
 

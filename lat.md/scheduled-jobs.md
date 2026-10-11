@@ -14,11 +14,13 @@ Token dashboard connection tests use public status only for discovery, then veri
 
 ## Run history
 
-Each job card has a history toggle backed by [[src/main/cronjobs.ts#listCronRuns]] and [[src/main/cronjobs.ts#getCronRunOutput]]. Remote lists the dashboard's `/api/cron/jobs/{id}/runs` and reads an agent run's text from its `cron_*` session; local reads the saved output files.
+An expanded job shows its newest runs and bounded plain-text output, owned by the selected connection and profile.
 
-Local history stats the files and reads only the newest page of previews. The expanded list re-fetches whenever the jobs reload, and output requests are sequenced so a slower earlier response never replaces the run currently open.
+[[src/main/cronjobs.ts#listCronRuns]] and [[src/main/cronjobs.ts#getCronRunOutput]] resolve the existing main-issued editor target before reading and after deferred replies. Private settings and OAuth account changes revoke it. Dashboard reads include an explicit default or named profile, support resolved anonymous token dashboards and Basic proxies, and never fall back from OAuth failure to bare fetch.
 
-Script-only remote runs have no endpoint for the saved file, so only their preview is shown, marked partial only when it was actually cut. SSH reports the history as unsupported.
+Remote output requires membership in the job's newest 100-run window before reading session messages. A 500-message page is marked partial; hidden display messages are omitted. The current Agent exposes cron sessions, not script-file output. Servers returning script-preview rows expose only a preview, always marked partial. Local history reads newest regular files without following file symlinks, with bounded previews and a 200,000-character output cap. SSH history is explicitly unsupported.
+
+[[src/renderer/src/screens/Schedules/CronRunHistory.tsx#CronRunHistory]] cancels obsolete reads on configuration, profile, connection and open-run changes. Refresh reloads both the expanded list and open output. The Layout Schedules key follows connection, profile and semantic settings identity; display-label notifications preserve its pane.
 
 ## Test specifications
 
@@ -69,3 +71,31 @@ A public dashboard status response cannot validate a candidate token; connection
 ### Gateway token validation
 
 A gateway public health response cannot validate a token; connection tests require protected model access with the candidate Bearer token before declaring the gateway connection successful.
+
+### History profile and authentication
+
+Default and named history reads use dashboard profile queries and the selected authenticated transport. Resolved anonymous token dashboards normalize URLs and Basic credentials, while OAuth failures and malformed successful responses remain failures.
+
+### History target authority
+
+Stale queued targets, changed credentials, deferred authentication probes, old-server replies and OAuth account changes cannot read or display history under a newer target.
+
+### History output ownership and limits
+
+Output requires membership in the requested job's history, rejects invalid response shapes, respects projected display messages and marks a full bounded message page as partial.
+
+### Local history bounds
+
+Only the newest bounded page of regular local output files is previewed. Full output reads are capped, traversal and file symlinks are refused, and invalid limits cannot request the entire archive.
+
+### Open output refresh
+
+Refreshing jobs reloads an already-open run's output, so a completed run cannot keep showing text from its earlier active state.
+
+### History view lifetime
+
+Late list and output replies cannot overwrite a changed connection, profile, configuration or opened run. A refreshed missing run closes its output and real errors remain visible.
+
+### Schedules parent target changes
+
+The actual Layout preserves the Schedules pane on display-label notifications and replaces it on a connection or private settings change, so old job labels and drafts cannot be reused for a new target.

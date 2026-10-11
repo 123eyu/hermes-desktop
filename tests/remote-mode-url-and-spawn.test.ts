@@ -540,7 +540,7 @@ describe("Cron SSH fallback", () => {
     expect(res.success).toBe(true);
     expect(res.runs[0]).toMatchObject({ id: "cron_j_1", preview: "p" });
     expect(dashboardRequestMock.mock.calls[0][1]).toBe(
-      "/api/cron/jobs/j1/runs?limit=100",
+      "/api/cron/jobs/j1/runs?limit=100&profile=default",
     );
     dashboardRequestMock.mockClear();
     expect((await listCronRuns("../etc")).success).toBe(false);
@@ -557,6 +557,7 @@ describe("Cron SSH fallback", () => {
         }
         return {
           runs: [
+            { id: "cron_j1_20260101_100000", source: "cron" },
             {
               id: "cron_output:j1:s",
               source: "cron_output",
@@ -574,14 +575,14 @@ describe("Cron SSH fallback", () => {
     const { getCronRunOutput } = await import("../src/main/cronjobs");
     const agent = await getCronRunOutput("j1", "cron_j1_20260101_100000");
     expect(agent).toMatchObject({ success: true, output: "[assistant]\ndone" });
-    expect(dashboardRequestMock.mock.calls[0][1]).toBe(
-      "/api/sessions/cron_j1_20260101_100000/messages?order=oldest&limit=500",
+    expect(dashboardRequestMock.mock.calls[1][1]).toBe(
+      "/api/sessions/cron_j1_20260101_100000/messages?order=oldest&limit=500&profile=default",
     );
-    // A preview shorter than the server's cut-off is the whole file.
+    // A row preview is not evidence that the server supplied the complete file.
     expect(await getCronRunOutput("j1", "cron_output:j1:s")).toMatchObject({
       success: true,
       output: "short whole file",
-      partial: false,
+      partial: true,
     });
     // One ending in the server's ellipsis was truncated.
     expect(await getCronRunOutput("j1", "cron_output:j1:t")).toMatchObject({

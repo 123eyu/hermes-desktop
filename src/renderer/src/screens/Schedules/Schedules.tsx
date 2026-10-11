@@ -53,10 +53,14 @@ interface CronJob {
 type FrequencyType = "minutes" | "hourly" | "daily" | "weekly" | "custom";
 
 interface SchedulesProps {
+  connectionId?: string;
   profile?: string;
 }
 
-function Schedules({ profile }: SchedulesProps): React.JSX.Element {
+function Schedules({
+  profile,
+  connectionId,
+}: SchedulesProps): React.JSX.Element {
   const { t } = useI18n();
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -672,6 +676,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
               {historyJob === job.id && (
                 <CronRunHistory
                   jobId={job.id}
+                  connectionId={connectionId}
                   profile={profile}
                   refreshKey={historyRefresh}
                 />

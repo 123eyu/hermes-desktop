@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useProfileEditorTarget } from "../../hooks/useProfileEditorTarget";
+import type { ProfileEditorTarget } from "../../../../shared/profile-editor-target";
 import { useI18n } from "../../components/useI18n";
 
 type Runs = Awaited<ReturnType<typeof window.hermesAPI.listCronRuns>>;
@@ -34,12 +36,45 @@ function tokenSummary(run: Run): string {
 export function CronRunHistory({
   jobId,
   profile,
+  connectionId,
   refreshKey = 0,
 }: {
   jobId: string;
   profile?: string;
-  /** Bump to re-fetch the run list (after a run is triggered or jobs refresh). */
+  connectionId?: string;
   refreshKey?: number;
+}): React.JSX.Element {
+  const { t } = useI18n();
+  const { target, error, isCurrent } = useProfileEditorTarget(
+    profile || "default",
+    connectionId,
+  );
+  if (error) return <div className="schedules-card-error">{error}</div>;
+  if (!target)
+    return (
+      <div className="schedules-history">{t("schedules.historyLoading")}</div>
+    );
+  return (
+    <CronRunHistoryContent
+      key={JSON.stringify([jobId, target.scopeToken])}
+      jobId={jobId}
+      target={target}
+      isCurrent={isCurrent}
+      refreshKey={refreshKey}
+    />
+  );
+}
+
+function CronRunHistoryContent({
+  jobId,
+  target,
+  isCurrent,
+  refreshKey,
+}: {
+  jobId: string;
+  target: ProfileEditorTarget;
+  isCurrent: (target: ProfileEditorTarget) => boolean;
+  refreshKey: number;
 }): React.JSX.Element {
   const { t } = useI18n();
   const [runs, setRuns] = useState<Run[] | null>(null);
@@ -51,76 +86,62 @@ export function CronRunHistory({
   > | null>(null);
   const [outputLoading, setOutputLoading] = useState(false);
 
-  // Only the latest output request may write state; a bump also drops the
-  // result of an in-flight request after the job or profile changes.
-  const outputRequest = useRef(0);
-
-  useEffect(() => {
-    outputRequest.current += 1;
-    setRuns(null);
-    setOpenRun(null);
-    setOutput(null);
-    setOutputLoading(false);
-  }, [jobId, profile]);
-
   useEffect(() => {
     let cancelled = false;
     setListError("");
     setUnsupported(false);
-    window.hermesAPI
-      .listCronRuns(jobId, 20, profile)
+    void window.hermesAPI
+      .listCronRuns(jobId, 20, target.profile, target)
       .then((res) => {
-        if (cancelled) return;
-        if (res.success) setRuns(res.runs);
-        else {
+        if (cancelled || !isCurrent(target)) return;
+        if (res.success) {
+          setRuns(res.runs);
+          setOpenRun((previous) =>
+            res.runs.some((run) => run.id === previous) ? previous : null,
+          );
+        } else {
           setUnsupported(Boolean(res.unsupported));
           setListError(res.error || "");
           setRuns([]);
+          setOpenRun(null);
         }
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (cancelled || !isCurrent(target)) return;
         setListError(err instanceof Error ? err.message : String(err));
         setRuns([]);
+        setOpenRun(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [jobId, profile, refreshKey]);
+  }, [jobId, target, isCurrent, refreshKey]);
 
-  const toggleRun = useCallback(
-    async (runId: string): Promise<void> => {
-      if (openRun === runId) {
-        outputRequest.current += 1;
-        setOpenRun(null);
-        setOutputLoading(false);
-        return;
-      }
-      const request = ++outputRequest.current;
-      setOpenRun(runId);
-      setOutput(null);
-      setOutputLoading(true);
-      try {
-        const result = await window.hermesAPI.getCronRunOutput(
-          jobId,
-          runId,
-          profile,
-        );
-        if (request === outputRequest.current) setOutput(result);
-      } catch (err) {
-        if (request === outputRequest.current) {
+  useEffect(() => {
+    let cancelled = false;
+    setOutput(null);
+    setOutputLoading(Boolean(openRun));
+    if (!openRun || !isCurrent(target)) return;
+    void window.hermesAPI
+      .getCronRunOutput(jobId, openRun, target.profile, target)
+      .then((result) => {
+        if (!cancelled && isCurrent(target)) setOutput(result);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled && isCurrent(target))
           setOutput({
             success: false,
             output: "",
             error: err instanceof Error ? err.message : String(err),
           });
-        }
-      } finally {
-        if (request === outputRequest.current) setOutputLoading(false);
-      }
-    },
-    [jobId, profile, openRun],
-  );
+      })
+      .finally(() => {
+        if (!cancelled && isCurrent(target)) setOutputLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId, target, isCurrent, openRun, refreshKey]);
 
   if (runs === null) {
     return (
@@ -152,7 +173,10 @@ export function CronRunHistory({
             type="button"
             className="schedules-history-row"
             aria-expanded={openRun === run.id}
-            onClick={() => void toggleRun(run.id)}
+            onClick={() => {
+              if (isCurrent(target))
+                setOpenRun((previous) => (previous === run.id ? null : run.id));
+            }}
           >
             <span>{formatRunTime(run.started_at)}</span>
             {run.is_active && <span>●</span>}

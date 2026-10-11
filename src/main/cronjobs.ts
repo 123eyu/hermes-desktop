@@ -14,7 +14,11 @@ import { getConnectionConfig, type ConnectionConfig } from "./config";
 import { HIDDEN_SUBPROCESS_OPTIONS } from "./process-options";
 import { sshRunCron } from "./ssh-remote";
 import { remoteDashboardRequestJson } from "./remote-api";
-import { RemoteOAuthError } from "./remote-oauth";
+import { RemoteOAuthError, probeRemoteAuthMode } from "./remote-oauth";
+import { dashboardApiUrl } from "./remote-sessions";
+import { providerTargetRevision } from "./provider-request-target";
+import { resolveProfileEditorTarget } from "./profile-editor-target";
+import type { ProfileEditorTarget } from "../shared/profile-editor-target";
 import type { SshConfig } from "./ssh-tunnel";
 
 export interface CronJob {
@@ -748,12 +752,16 @@ function remoteRunsUnsupported(err: unknown): boolean {
   return status === 404 || status === 405;
 }
 
-/** First `chars` characters of a file without reading the rest of it. */
+/** Read a bounded prefix, refusing symlinks and non-file entries. */
 async function readFilePreview(path: string, chars: number): Promise<string> {
-  const { open } = await import("fs/promises");
-  const handle = await open(path, "r");
+  const { open, lstat } = await import("fs/promises");
+  if (!(await lstat(path)).isFile())
+    throw new Error("Run output is not a file.");
+  const { constants } = await import("fs");
+  const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
-    // UTF-8 needs at most 4 bytes per character.
+    if (!(await handle.stat()).isFile())
+      throw new Error("Run output is not a file.");
     const buf = Buffer.alloc(chars * 4);
     const { bytesRead } = await handle.read(buf, 0, buf.length, 0);
     return buf.toString("utf-8", 0, bytesRead).slice(0, chars);
@@ -766,176 +774,249 @@ function localRunDir(jobId: string, profile?: string): string {
   return join(profileHome(profile), "cron", "output", jobId);
 }
 
-/** History of a job's runs, newest first. Remote: the dashboard `/runs`; local: saved output files. */
+function runLimit(limit: number): number {
+  return Number.isFinite(limit)
+    ? Math.max(1, Math.min(100, Math.floor(limit)))
+    : 20;
+}
+
+/** Only the selected dashboard may supply history; no legacy gateway fallback. */
+async function historyJson<T>(
+  conn: ConnectionConfig,
+  path: string,
+  profile: string | undefined,
+  assertCurrent: () => void,
+): Promise<T> {
+  const revision = providerTargetRevision(conn);
+  const check = (): void => {
+    assertCurrent();
+    if (providerTargetRevision(conn) !== revision)
+      throw new Error("Remote authentication changed; reload history.");
+  };
+  const mode =
+    conn.remoteAuthMode === "auto"
+      ? (await probeRemoteAuthMode(conn.remoteUrl)).authMode
+      : conn.remoteAuthMode;
+  check();
+  const scopedPath = `${path}${path.includes("?") ? "&" : "?"}profile=${encodeURIComponent(profile || "default")}`;
+  let result: T;
+  if (mode === "token" && !conn.apiKey.trim()) {
+    const url = new URL(
+      dashboardApiUrl({ remoteUrl: conn.remoteUrl, apiKey: "" }, scopedPath),
+    );
+    const headers: Record<string, string> = {};
+    if (url.username || url.password) {
+      headers.Authorization = `Basic ${Buffer.from(`${decodeURIComponent(url.username)}:${decodeURIComponent(url.password)}`).toString("base64")}`;
+      url.username = "";
+      url.password = "";
+    }
+    const response = await fetch(url.toString(), {
+      headers,
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok)
+      throw Object.assign(new Error(`Run history HTTP ${response.status}`), {
+        statusCode: response.status,
+      });
+    result = (await response.json()) as T;
+  } else {
+    result = await remoteDashboardRequestJson<T>(
+      { ...conn, remoteAuthMode: mode },
+      scopedPath,
+    );
+  }
+  check();
+  return result;
+}
+
+async function remoteRunList(
+  jobId: string,
+  limit: number,
+  conn: ConnectionConfig,
+  profile: string | undefined,
+  assertCurrent: () => void,
+): Promise<CronRun[]> {
+  const data = await historyJson<{ runs: unknown }>(
+    conn,
+    `${DASHBOARD_CRON_BASE}/${encodeURIComponent(jobId)}/runs?limit=${runLimit(limit)}`,
+    profile,
+    assertCurrent,
+  );
+  if (
+    !Array.isArray(data?.runs) ||
+    data.runs.some(
+      (row) =>
+        !row ||
+        typeof row !== "object" ||
+        typeof row.id !== "string" ||
+        !SAFE_SEGMENT.test(row.id),
+    )
+  )
+    throw new Error("Run history response was invalid.");
+  return data.runs.map(normalizeRun);
+}
+
+/** Newest runs, bound to the captured connection and profile. */
 export async function listCronRuns(
   jobId: string,
   limit = 20,
   profile?: string,
+  target?: ProfileEditorTarget,
 ): Promise<CronRunsResult> {
-  if (!SAFE_SEGMENT.test(jobId)) {
-    return { success: false, runs: [], error: "Invalid job ID" };
-  }
-  const conn = getConnectionConfig();
-  if (conn.mode === "ssh") {
-    return {
-      success: false,
-      runs: [],
-      unsupported: true,
-      error: "Run history is not available over SSH yet.",
+  try {
+    if (!SAFE_SEGMENT.test(jobId)) throw new Error("Invalid job ID");
+    const resolved = resolveProfileEditorTarget(profile, target);
+    const conn = resolved.connection;
+    const assertCurrent = (): void => {
+      if (target) resolveProfileEditorTarget(profile, target);
     };
-  }
-  if (conn.mode === "remote") {
-    try {
-      const data = await remoteDashboardRequestJson<{
-        runs?: Record<string, unknown>[];
-      }>(
-        conn,
-        `${DASHBOARD_CRON_BASE}/${encodeURIComponent(jobId)}/runs?limit=${Math.max(1, Math.min(100, Math.floor(limit)))}`,
-        {},
-        profile,
-      );
-      return {
-        success: true,
-        runs: (data?.runs ?? []).map(normalizeRun).filter((r) => r.id),
-      };
-    } catch (err) {
+    if (conn.mode === "ssh")
       return {
         success: false,
         runs: [],
-        unsupported: remoteRunsUnsupported(err),
-        error: err instanceof Error ? err.message : String(err),
+        unsupported: true,
+        error: "Run history is not available over SSH yet.",
       };
-    }
-  }
-
-  const dir = localRunDir(jobId, profile);
-  if (!existsSync(dir)) return { success: true, runs: [] };
-  try {
-    const { readdir, stat } = await import("fs/promises");
-    const names = (await readdir(dir)).filter((n) => n.endsWith(".md"));
-    // Stat everything (cheap), then read only the newest `limit` previews.
+    if (conn.mode === "remote")
+      return {
+        success: true,
+        runs: await remoteRunList(
+          jobId,
+          limit,
+          conn,
+          resolved.profile,
+          assertCurrent,
+        ),
+      };
+    const dir = localRunDir(jobId, resolved.profile);
+    if (!existsSync(dir)) return { success: true, runs: [] };
+    const { readdir, lstat } = await import("fs/promises");
+    const names = (await readdir(dir)).filter(
+      (name) => name.endsWith(".md") && SAFE_SEGMENT.test(name),
+    );
     const stats = await Promise.all(
       names.map(async (name) => {
         try {
-          return { name, mtimeMs: (await stat(join(dir, name))).mtimeMs };
+          const stat = await lstat(join(dir, name));
+          return stat.isFile() ? { name, mtimeMs: stat.mtimeMs } : null;
         } catch {
-          return null; // removed between readdir and stat
+          return null;
         }
       }),
     );
     const newest = stats
-      .filter((s): s is { name: string; mtimeMs: number } => s !== null)
+      .filter(
+        (stat): stat is { name: string; mtimeMs: number } => stat !== null,
+      )
       .sort((a, b) => b.mtimeMs - a.mtimeMs)
-      .slice(0, Math.max(1, limit));
+      .slice(0, runLimit(limit));
     const runs = await Promise.all(
-      newest.map(async ({ name, mtimeMs }): Promise<CronRun> => {
-        let preview = "";
-        try {
-          preview = await readFilePreview(join(dir, name), 300);
-        } catch {
-          /* unreadable file: keep an empty preview */
-        }
-        return {
+      newest.map(
+        async ({ name, mtimeMs }): Promise<CronRun> => ({
           id: `file:${name}`,
           source: "cron_output",
-          started_at: Math.floor(mtimeMs / 1000),
+          started_at: mtimeMs / 1000,
           ended_at: null,
           title: name.replace(/\.md$/, ""),
-          preview,
+          preview: await readFilePreview(join(dir, name), 300),
           message_count: 0,
           input_tokens: null,
           output_tokens: null,
           is_active: false,
-        };
-      }),
+        }),
+      ),
     );
-    return { success: true, runs: runs };
+    assertCurrent();
+    return { success: true, runs };
   } catch (err) {
-    return { success: false, runs: [], error: (err as Error).message };
+    return {
+      success: false,
+      runs: [],
+      unsupported: remoteRunsUnsupported(err),
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
-/** Text of one run. Agent runs are sessions; script-only runs are limited to their preview remotely. */
+/** Bounded text of a run belonging to this job's current history window. */
 export async function getCronRunOutput(
   jobId: string,
   runId: string,
   profile?: string,
+  target?: ProfileEditorTarget,
 ): Promise<CronRunOutputResult> {
-  if (
-    !SAFE_SEGMENT.test(jobId) ||
-    !SAFE_SEGMENT.test(runId.replace(/^file:/, ""))
-  ) {
-    return { success: false, output: "", error: "Invalid run ID" };
-  }
-  const conn = getConnectionConfig();
-  if (conn.mode === "ssh") {
-    return {
-      success: false,
-      output: "",
-      unsupported: true,
-      error: "Run output is not available over SSH yet.",
+  try {
+    if (
+      !SAFE_SEGMENT.test(jobId) ||
+      !SAFE_SEGMENT.test(runId.replace(/^file:/, ""))
+    )
+      throw new Error("Invalid run ID");
+    const resolved = resolveProfileEditorTarget(profile, target);
+    const conn = resolved.connection;
+    const assertCurrent = (): void => {
+      if (target) resolveProfileEditorTarget(profile, target);
     };
-  }
-
-  if (conn.mode === "remote") {
-    try {
-      if (runId.startsWith("cron_output:")) {
-        // No endpoint returns the saved file's text; the run row carries its
-        // preview, which is all the server exposes.
-        const runs = await listCronRuns(jobId, 100, profile);
-        const run = runs.runs.find((r) => r.id === runId);
-        if (!run) return { success: false, output: "", error: "Run not found" };
-        // The server cuts previews at 180 chars and ends a cut one with "…",
-        // so a shorter preview is the whole file, not just its beginning.
-        return {
-          success: true,
-          output: run.preview,
-          partial: run.preview.endsWith("…"),
-        };
-      }
-      const data = await remoteDashboardRequestJson<{
-        messages?: Array<Record<string, unknown>>;
-      }>(
+    if (conn.mode === "ssh")
+      return {
+        success: false,
+        output: "",
+        unsupported: true,
+        error: "Run output is not available over SSH yet.",
+      };
+    if (conn.mode === "remote") {
+      const runs = await remoteRunList(
+        jobId,
+        100,
+        conn,
+        resolved.profile,
+        assertCurrent,
+      );
+      const run = runs.find((item) => item.id === runId);
+      if (!run) throw new Error("Run not found in this job's history.");
+      if (run.source === "cron_output")
+        return { success: true, output: run.preview, partial: true };
+      const data = await historyJson<{ messages: unknown }>(
         conn,
         `/api/sessions/${encodeURIComponent(runId)}/messages?order=oldest&limit=500`,
-        {},
-        profile,
+        resolved.profile,
+        assertCurrent,
       );
-      const text = (data?.messages ?? [])
+      if (
+        !Array.isArray(data?.messages) ||
+        data.messages.some((message) => !message || typeof message !== "object")
+      )
+        throw new Error("Run output response was invalid.");
+      const text = data.messages
+        .filter((m) => m.display_kind !== "hidden")
         .map((m) => {
           const role = String(m.role ?? "message");
+          const raw = m.display_content ?? m.content;
           const content =
-            typeof m.content === "string"
-              ? m.content
-              : m.content
-                ? JSON.stringify(m.content)
-                : "";
+            typeof raw === "string" ? raw : raw ? JSON.stringify(raw) : "";
           return content.trim() ? `[${role}]\n${content}` : "";
         })
         .filter(Boolean)
         .join("\n\n");
-      return { success: true, ...clampRunOutput(text) };
-    } catch (err) {
       return {
-        success: false,
-        output: "",
-        unsupported: remoteRunsUnsupported(err),
-        error: err instanceof Error ? err.message : String(err),
+        success: true,
+        ...clampRunOutput(text),
+        partial: data.messages.length === 500,
       };
     }
-  }
-
-  const name = runId.startsWith("file:") ? runId.slice(5) : "";
-  if (!name.endsWith(".md")) {
-    return { success: false, output: "", error: "Invalid run ID" };
-  }
-  try {
-    const text = await readFile(
-      join(localRunDir(jobId, profile), name),
-      "utf-8",
+    const name = runId.startsWith("file:") ? runId.slice(5) : "";
+    if (!name.endsWith(".md")) throw new Error("Invalid run ID");
+    const text = await readFilePreview(
+      join(localRunDir(jobId, resolved.profile), name),
+      MAX_RUN_OUTPUT_CHARS + 1,
     );
+    assertCurrent();
     return { success: true, ...clampRunOutput(text) };
   } catch (err) {
-    return { success: false, output: "", error: (err as Error).message };
+    return {
+      success: false,
+      output: "",
+      unsupported: remoteRunsUnsupported(err),
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }

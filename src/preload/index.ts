@@ -1717,6 +1717,7 @@ const hermesAPI = {
     jobId: string,
     limit?: number,
     profile?: string,
+    target?: ProfileEditorTarget,
   ): Promise<{
     success: boolean;
     runs: Array<{
@@ -1733,11 +1734,12 @@ const hermesAPI = {
     }>;
     error?: string;
     unsupported?: boolean;
-  }> => ipcRenderer.invoke("list-cron-runs", jobId, limit, profile),
+  }> => ipcRenderer.invoke("list-cron-runs", jobId, limit, profile, target),
   getCronRunOutput: (
     jobId: string,
     runId: string,
     profile?: string,
+    target?: ProfileEditorTarget,
   ): Promise<{
     success: boolean;
     output: string;
@@ -1745,7 +1747,8 @@ const hermesAPI = {
     truncated?: boolean;
     error?: string;
     unsupported?: boolean;
-  }> => ipcRenderer.invoke("get-cron-run-output", jobId, runId, profile),
+  }> =>
+    ipcRenderer.invoke("get-cron-run-output", jobId, runId, profile, target),
 
   triggerCronJob: (
     jobId: string,

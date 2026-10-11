@@ -3627,13 +3627,23 @@ export function registerIpcHandlers(context: IpcContext): void {
   );
   ipcMain.handle(
     "list-cron-runs",
-    (_event, jobId: string, limit?: number, profile?: string) =>
-      listCronRuns(jobId, limit, profile),
+    (
+      _event,
+      jobId: string,
+      limit?: number,
+      profile?: string,
+      target?: ProfileEditorTarget,
+    ) => listCronRuns(jobId, limit, profile, target),
   );
   ipcMain.handle(
     "get-cron-run-output",
-    (_event, jobId: string, runId: string, profile?: string) =>
-      getCronRunOutput(jobId, runId, profile),
+    (
+      _event,
+      jobId: string,
+      runId: string,
+      profile?: string,
+      target?: ProfileEditorTarget,
+    ) => getCronRunOutput(jobId, runId, profile, target),
   );
   ipcMain.handle(
     "create-cron-job",

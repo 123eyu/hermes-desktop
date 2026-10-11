@@ -1223,6 +1223,7 @@ interface HermesAPI {
     jobId: string,
     limit?: number,
     profile?: string,
+    target?: ProfileEditorTarget,
   ) => Promise<{
     success: boolean;
     runs: Array<{
@@ -1244,6 +1245,7 @@ interface HermesAPI {
     jobId: string,
     runId: string,
     profile?: string,
+    target?: ProfileEditorTarget,
   ) => Promise<{
     success: boolean;
     output: string;
