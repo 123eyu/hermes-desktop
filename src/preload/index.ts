@@ -1,7 +1,14 @@
+import type {
+  SpeechRequest,
+  SpeechSettings,
+  SpeechConfigSetting,
+  SynthesizedSpeech,
+} from "../shared/minimax-speech";
 import type { ProfileEditorTarget } from "../shared/profile-editor-target";
 import type { ProviderRequestTarget } from "../shared/provider-target";
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { AppLocale } from "../shared/i18n/types";
+import type { BotGroupAPI } from "../shared/bot-groups";
 import type { Attachment } from "../shared/attachments";
 import type {
   RemoteGatewayAction,
@@ -136,6 +143,13 @@ const electronAPI = {
 };
 
 const hermesAPI = {
+  botGroups: ((connectionId, operation, params = {}) =>
+    ipcRenderer.invoke(
+      "bot-groups-request",
+      connectionId,
+      operation,
+      params,
+    )) as BotGroupAPI,
   // Installation
   checkInstall: (): Promise<{
     installed: boolean;
@@ -611,6 +625,23 @@ const hermesAPI = {
     profile?: string,
   ): Promise<string> =>
     ipcRenderer.invoke("transcribe-audio", audio, mimeType, profile),
+
+  synthesizeSpeech: (request: SpeechRequest): Promise<SynthesizedSpeech> =>
+    ipcRenderer.invoke("synthesize-speech", request),
+  cancelSpeech: (requestId: string): Promise<boolean> =>
+    ipcRenderer.invoke("cancel-speech", requestId),
+  getSpeechConfig: (
+    profile: string,
+    target: ProviderRequestTarget,
+  ): Promise<SpeechSettings> =>
+    ipcRenderer.invoke("get-speech-config", profile, target),
+  setSpeechConfig: (
+    setting: SpeechConfigSetting,
+    value: string,
+    profile: string,
+    target: ProviderRequestTarget,
+  ): Promise<boolean> =>
+    ipcRenderer.invoke("set-speech-config", setting, value, profile, target),
 
   getApiServerKeyStatus: (
     profile?: string,

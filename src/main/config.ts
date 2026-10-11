@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { randomBytes } from "crypto";
-import { join } from "path";
+import { dirname, join } from "path";
+import type { SpeechConfigSetting } from "../shared/minimax-speech";
 import { HERMES_HOME, expectedEnvKeyForModel } from "./installer";
 import {
   escapeRegex,
@@ -736,6 +737,7 @@ function findSegmentInBlock(
   startAt: number,
   parentIndent: number,
   segment: string,
+  stripCarriageReturn = false,
 ): SegmentMatch | null {
   // Walk lines from startAt until we leave the parent's block (a line
   // with indent <= parentIndent). Within the block, return the first
@@ -748,7 +750,8 @@ function findSegmentInBlock(
   while (cursor < content.length) {
     const lineEnd = content.indexOf("\n", cursor);
     const lineEndExclusive = lineEnd === -1 ? content.length : lineEnd;
-    const line = content.slice(cursor, lineEndExclusive);
+    const rawLine = content.slice(cursor, lineEndExclusive);
+    const line = stripCarriageReturn ? rawLine.replace(/\r$/, "") : rawLine;
     const trimmed = line.trim();
 
     if (trimmed === "" || trimmed.startsWith("#")) {
@@ -901,6 +904,210 @@ export function setConfigValue(
   if (nextContent !== null) {
     safeWriteFile(configFile, nextContent);
   }
+}
+
+// @lat: [[speech-playback#Single-document configuration boundary]]
+function splitSpeechYamlDocument(content: string): {
+  prefix: string;
+  body: string;
+  suffix: string;
+} | null {
+  let bodyStart = 0;
+  let bodyEnd = content.length;
+  let started = false;
+  let ended = false;
+  let sawContent = false;
+  let cursor = 0;
+  while (cursor < content.length) {
+    const end = content.indexOf("\n", cursor);
+    const next = end < 0 ? content.length : end + 1;
+    const line = content.slice(cursor, end < 0 ? next : end).replace(/\r$/, "");
+    const marker = line.match(/^(---|\.\.\.)(?:[ \t]+(?:#.*)?)?$/)?.[1];
+    if (marker === "---") {
+      if (started || ended || sawContent) return null;
+      started = true;
+      bodyStart = next;
+    } else if (marker === "...") {
+      if (ended) return null;
+      ended = true;
+      bodyEnd = cursor;
+    } else if (line.trim() && !line.trimStart().startsWith("#")) {
+      // Directives or inline document headers need a full YAML editor. No
+      // setting may be read/replaced across another document or its trailer.
+      if (ended || /^(?:%|---[ \t]|\.\.\.[ \t])/.test(line)) return null;
+      sawContent = true;
+    }
+    cursor = next;
+  }
+  return {
+    prefix: content.slice(0, bodyStart),
+    body: content.slice(bodyStart, bodyEnd),
+    suffix: content.slice(bodyEnd),
+  };
+}
+
+/** Insert only the known speech leaf into plain, nested YAML mappings. */
+function appendSpeechYamlValue(
+  content: string,
+  segments: readonly string[],
+  value: string,
+  newline = content.includes("\r\n") ? "\r\n" : "\n",
+): string | null {
+  let cursor = 0;
+  let parentIndent = -1;
+  for (let level = 0; level < segments.length; level++) {
+    const found = findSegmentInBlock(
+      content,
+      cursor,
+      parentIndent,
+      segments[level],
+      true,
+    );
+    if (found) {
+      if (level === segments.length - 1) {
+        // Replacing only the inline scalar must never strand a child mapping
+        // or a plain scalar continuation below the new quoted value.
+        let nextLine = found.afterLine;
+        while (nextLine < content.length) {
+          const end = content.indexOf("\n", nextLine);
+          const next = end < 0 ? content.length : end + 1;
+          const line = content.slice(nextLine, end < 0 ? next : end);
+          const trimmed = line.trimStart();
+          if (trimmed.trim() && !trimmed.startsWith("#")) {
+            const indent = line.length - trimmed.length;
+            if (indent > found.indent) return null;
+            if (
+              indent === found.indent &&
+              !/^(?:[a-zA-Z_][a-zA-Z0-9_-]*|"(?:\\.|[^"\\])*"|'(?:''|[^'])*')[ \t]*:/.test(
+                trimmed,
+              )
+            )
+              return null;
+            break;
+          }
+          nextLine = next;
+        }
+        const raw = found.rawValue.trim();
+        if (
+          ["|", ">", "&", "*", "[", "{"].includes(raw[0]) ||
+          ((raw.startsWith('"') || raw.startsWith("'")) &&
+            !raw.endsWith(raw[0]))
+        )
+          return null;
+        // The shared line scanner may include a CRLF carriage return in the
+        // scalar span. Preserve it as part of the original line ending.
+        const valueEnd =
+          content[found.valueEnd - 1] === "\r"
+            ? found.valueEnd - 1
+            : found.valueEnd;
+        // For an empty scalar the shared scanner consumes the spaces before
+        // its comment as the leading value gap. Keep explicit comment
+        // separation when inserting a quoted speech value into that gap.
+        const commentSeparator = content[valueEnd] === "#" ? " " : "";
+        return (
+          content.slice(0, found.valueStart) +
+          quoteYamlScalar(value) +
+          commentSeparator +
+          content.slice(valueEnd)
+        );
+      }
+      // Flow mappings, aliases and scalar parents need a full YAML editor.
+      if (found.rawValue.trim()) return null;
+      cursor = found.afterLine;
+      parentIndent = found.indent;
+      continue;
+    }
+    let blockEnd = cursor;
+    let childIndent = parentIndent < 0 ? 0 : parentIndent + 2;
+    let sawChild = false;
+    while (blockEnd < content.length) {
+      const end = content.indexOf("\n", blockEnd);
+      const next = end < 0 ? content.length : end + 1;
+      const line = content.slice(blockEnd, end < 0 ? next : end);
+      if (line.trim() && !line.trimStart().startsWith("#")) {
+        const indent = line.length - line.trimStart().length;
+        if (indent <= parentIndent) break;
+        if (!sawChild && !/^[ \t]*[a-zA-Z_][a-zA-Z0-9_-]*[ \t]*:/.test(line))
+          return null;
+        if (!sawChild && parentIndent >= 0) childIndent = indent;
+        if (
+          indent === childIndent &&
+          new RegExp(
+            `^[ \\t]*["']${escapeRegex(segments[level])}["'][ \\t]*:`,
+          ).test(line)
+        )
+          return null;
+        sawChild = true;
+      }
+      blockEnd = next;
+    }
+    const prefix =
+      blockEnd > 0 && !content.slice(0, blockEnd).endsWith("\n") ? newline : "";
+    const insertion = segments
+      .slice(level)
+      .map((segment, index, rest) => {
+        const pad = " ".repeat(childIndent + index * 2);
+        return `${pad}${segment}:${index === rest.length - 1 ? ` ${quoteYamlScalar(value)}` : ""}${newline}`;
+      })
+      .join("");
+    return (
+      content.slice(0, blockEnd) + prefix + insertion + content.slice(blockEnd)
+    );
+  }
+  return null;
+}
+
+// @lat: [[speech-playback#Scoped speech settings]]
+export function setMiniMaxSpeechConfigValue(
+  setting: SpeechConfigSetting,
+  value: string,
+  profile: string,
+): void {
+  const { configFile } = profilePaths(profile);
+  const content = existsSync(configFile)
+    ? readFileSync(configFile, "utf-8")
+    : "";
+  const document = splitSpeechYamlDocument(content);
+  if (!document)
+    throw new Error(
+      "Cannot update this YAML document; use a single plain mapping.",
+    );
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const next = appendSpeechYamlValue(
+    document.body,
+    ["tts", "minimax", setting],
+    value,
+    newline,
+  );
+  if (next === null)
+    throw new Error(
+      "Cannot update this YAML layout; use plain speech mappings.",
+    );
+  const complete = appendSpeechYamlValue(
+    next,
+    ["tts", "provider"],
+    "minimax",
+    newline,
+  );
+  if (complete === null)
+    throw new Error(
+      "Cannot update this YAML speech provider mapping; use a plain scalar.",
+    );
+  // Verify both serialized speech values before one atomic write. Unsupported
+  // syntax must fail visibly rather than acknowledge a silent no-op.
+  if (
+    getYamlPath(complete, "tts.provider") !== "minimax" ||
+    getYamlPath(complete, `tts.minimax.${setting}`) !== value
+  ) {
+    throw new Error("Could not persist the selected speech setting.");
+  }
+  mkdirSync(dirname(configFile), { recursive: true });
+  const separator =
+    document.prefix && !document.prefix.endsWith("\n") ? newline : "";
+  safeWriteFile(
+    configFile,
+    document.prefix + separator + complete + document.suffix,
+  );
 }
 
 /**
