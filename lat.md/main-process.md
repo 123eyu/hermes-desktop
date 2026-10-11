@@ -208,6 +208,12 @@ Speech-to-text IPC sends recorded desktop audio through the Hermes API server, n
 
 [[src/main/ipc/register.ts#registerIpcHandlers]] exposes `transcribe-audio` for the preload bridge, and [[src/main/hermes.ts#transcribeAudio]] posts a base64 data URL to `/api/audio/transcribe`. If the local gateway lacks that desktop route, it falls back to the Python `tools.transcription_tools.transcribe_audio` dispatcher, so local Whisper, Groq, OpenAI, ElevenLabs, and command/plugin STT providers remain independent from the selected chat model.
 
+## MiniMax speech synthesis
+
+Local agent message actions can request spoken audio without exposing speech credentials to the renderer.
+
+[[speech-playback]] defines selected Local target authority, one playback owner, request cancellation, bounded encoded synthesis and scoped speech settings. [[speech-playback-tests]] documents actual IPC and rendered lifecycle regressions.
+
 ## SSH credential persistence
 
 Every Desktop SSH `.env` update uses a remote-side locked transaction, so overlapping dashboard, API-server, and provider writes preserve unrelated credentials.

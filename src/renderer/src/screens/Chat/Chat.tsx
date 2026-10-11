@@ -1346,6 +1346,9 @@ function Chat({
               onApprovalRespond={handleApprovalRespond}
               onApprovalResolved={handleApprovalResolved}
               agentAvatar={agentAvatar}
+              profile={profile}
+              connectionId={connectionId}
+              speechEnabled={active && connectionMode === "local"}
             />
           )}
           <div ref={bottomRef} />
