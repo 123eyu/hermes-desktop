@@ -23,6 +23,16 @@ Both real message rows use independent prose direction and LTR inline code witho
 
 Headings, list items and table cells detect direction individually. Lists, quotations and tables also receive auto direction without overriding the document layout contract. Task lists, GFM alignment and LTR inline code remain intact.
 
+### Loose list and quotation containers
+
+Loose list items and quotations let native auto direction read their first prose paragraph or heading, aligning markers and borders. Later paragraphs remain independent; leading code or media does not choose the container direction.
+
+The first prose block inherits its container's direction without a separate `dir` boundary. Other paragraphs retain `dir=auto`, inline links inherit prose, and code keeps its explicit LTR isolation under either interface direction.
+
+### Heading first containers
+
+A leading prose heading can supply native direction to its list marker or quotation border. Later headings and paragraphs remain independent; a neutral or numeric first block uses the inherited interface fallback.
+
 ### Footnotes retain link targets
 
 Direction wrappers preserve Markdown DOM attributes while excluding the AST node, so footnote IDs, reference targets and return links survive.

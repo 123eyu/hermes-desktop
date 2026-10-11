@@ -83,6 +83,89 @@ describe("AgentMarkdown", () => {
     expect(container.querySelector('input[type="checkbox"]')).toBeChecked();
   });
 
+  // @lat: [[rtl-chat#Bidirectional message rendering#Loose list and quotation containers]]
+  it.each(["ltr", "rtl"])(
+    "lets loose items and quotations read first prose under a %s interface",
+    (direction) => {
+      const { container } = render(
+        <div dir={direction}>
+          <AgentMarkdown>
+            {[
+              "- سلام",
+              "",
+              "- دنیا",
+              "",
+              "  English later paragraph with سلام",
+              "",
+              "> `const first = 1;`",
+              ">",
+              "> **سلام** [دنیا](https://example.com)",
+              ">",
+              "> English later quote",
+              "",
+              "- ```js",
+              "  // code first",
+              "  ```",
+              "",
+              "  سلام پس از کد",
+              "",
+              "> English first with سلام",
+              ">",
+              "> فارسی بعدی",
+            ].join("\n")}
+          </AgentMarkdown>
+        </div>,
+      );
+      const items = container.querySelectorAll("li");
+      expect(items).toHaveLength(3);
+      for (const item of items) {
+        expect(item).toHaveAttribute("dir", "auto");
+        expect(item.querySelector("p")).not.toHaveAttribute("dir");
+      }
+      expect(items[1].querySelectorAll("p")[1]).toHaveAttribute("dir", "auto");
+      const quotes = container.querySelectorAll("blockquote");
+      const paragraphs = quotes[0].querySelectorAll("p");
+      expect(quotes[0]).toHaveAttribute("dir", "auto");
+      expect(paragraphs[0]).toHaveAttribute("dir", "auto");
+      expect(paragraphs[1]).not.toHaveAttribute("dir");
+      expect(paragraphs[1].querySelector("a")).not.toHaveAttribute("dir");
+      expect(paragraphs[2]).toHaveAttribute("dir", "auto");
+      expect(quotes[1].querySelectorAll("p")[0]).not.toHaveAttribute("dir");
+      expect(quotes[1].querySelectorAll("p")[1]).toHaveAttribute("dir", "auto");
+      expect(paragraphs[0].querySelector("code")).toHaveAttribute("dir", "ltr");
+      expect(items[2].querySelector(".chat-code-block")).toHaveAttribute(
+        "dir",
+        "ltr",
+      );
+      expect(items[2].querySelector("pre")).toHaveAttribute("dir", "ltr");
+    },
+  );
+
+  // @lat: [[rtl-chat#Bidirectional message rendering#Heading first containers]]
+  it.each(["ltr", "rtl"])(
+    "exposes first prose headings under a %s interface",
+    (direction) => {
+      const { container } = render(
+        <div dir={direction}>
+          <AgentMarkdown>
+            {
+              "> # سلام\n>\n> English paragraph\n>\n> ## English heading\n\n- ## سلام\n\n  English later\n\n> 123 — !\n>\n> English after neutral"
+            }
+          </AgentMarkdown>
+        </div>,
+      );
+      const quote = container.querySelector("blockquote")!;
+      expect(quote.querySelector("h1")).not.toHaveAttribute("dir");
+      expect(quote.querySelector("p")).toHaveAttribute("dir", "auto");
+      expect(quote.querySelector("h2")).toHaveAttribute("dir", "auto");
+      expect(container.querySelector("li h2")).not.toHaveAttribute("dir");
+      expect(container.querySelector("li p")).toHaveAttribute("dir", "auto");
+      const neutral = container.querySelectorAll("blockquote")[1];
+      expect(neutral.querySelectorAll("p")[0]).not.toHaveAttribute("dir");
+      expect(neutral.querySelectorAll("p")[1]).toHaveAttribute("dir", "auto");
+    },
+  );
+
   // @lat: [[rtl-chat#Bidirectional message rendering#Footnotes retain link targets]]
   it("preserves GFM footnote definition IDs and return-link attributes", () => {
     const { container } = render(
