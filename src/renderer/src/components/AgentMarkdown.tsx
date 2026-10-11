@@ -1,5 +1,5 @@
 import { useState, useEffect, memo } from "react";
-import Markdown from "react-markdown";
+import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Copy } from "lucide-react";
 import { useI18n } from "./useI18n";
@@ -163,7 +163,7 @@ function CodeBlock({
   );
 
   return (
-    <div className="chat-code-block">
+    <div className="chat-code-block" dir="ltr">
       <div className="chat-code-header">
         <span className="chat-code-lang">
           {/* Keep the fence's declared language even when a box diagram
@@ -202,21 +202,44 @@ function CodeBlock({
   );
 }
 
+// A wrapper alone gives every block the first paragraph's direction. Each
+// prose block must make its own choice; code is intentionally kept LTR.
+const DIRECTION_COMPONENTS: Components = {
+  p: ({ node: _node, ...props }) => <p {...props} dir="auto" />,
+  h1: ({ node: _node, ...props }) => <h1 {...props} dir="auto" />,
+  h2: ({ node: _node, ...props }) => <h2 {...props} dir="auto" />,
+  h3: ({ node: _node, ...props }) => <h3 {...props} dir="auto" />,
+  h4: ({ node: _node, ...props }) => <h4 {...props} dir="auto" />,
+  h5: ({ node: _node, ...props }) => <h5 {...props} dir="auto" />,
+  h6: ({ node: _node, ...props }) => <h6 {...props} dir="auto" />,
+  blockquote: ({ node: _node, ...props }) => (
+    <blockquote {...props} dir="auto" />
+  ),
+  ul: ({ node: _node, ...props }) => <ul {...props} dir="auto" />,
+  ol: ({ node: _node, ...props }) => <ol {...props} dir="auto" />,
+  li: ({ node: _node, ...props }) => <li {...props} dir="auto" />,
+  table: ({ node: _node, ...props }) => <table {...props} dir="auto" />,
+  th: ({ node: _node, ...props }) => <th {...props} dir="auto" />,
+  td: ({ node: _node, ...props }) => <td {...props} dir="auto" />,
+  pre: ({ node: _node, ...props }) => <pre {...props} dir="ltr" />,
+};
+
 // Shared Markdown renderer that opens links externally
 const AgentMarkdown = memo(function AgentMarkdown({
   children,
 }: {
   children: string;
 }): React.JSX.Element {
-  // Detect RTL content so Arabic, Persian, Hebrew etc. render right-aligned.
-  // dir="auto" lets the browser decide based on the first strong character.
   return (
-    <div dir="auto">
+    <div className="chat-markdown" dir="auto">
       <Markdown
         remarkPlugins={[remarkGfm]}
         components={{
-          a: ({ href, children }) => (
+          ...DIRECTION_COMPONENTS,
+          a: ({ href, children, node: _node, ...props }) => (
             <a
+              {...props}
+              dir="auto"
               href={href}
               onClick={(e) => {
                 e.preventDefault();
@@ -261,7 +284,7 @@ const AgentMarkdown = memo(function AgentMarkdown({
               !children.includes("\n");
             if (isInline) {
               return (
-                <code className={className} {...props}>
+                <code className={className} {...props} dir="ltr">
                   {children}
                 </code>
               );

@@ -5109,6 +5109,17 @@ body:has(.shell-vibrant),
   text-decoration: underline;
 }
 
+/* Message text follows each block's first strong character, independently
+   from interface direction and bubble actions. */
+.chat-markdown {
+  text-align: start;
+  unicode-bidi: isolate;
+}
+
+.chat-markdown code {
+  unicode-bidi: isolate;
+}
+
 .chat-bubble-agent {
   background: var(--agent-bubble);
   color: var(--agent-bubble-text);
@@ -5254,6 +5265,8 @@ body:has(.shell-vibrant),
 }
 
 .chat-code-block {
+  text-align: left;
+  unicode-bidi: isolate;
   border-radius: 6px;
   overflow: hidden;
   margin: 6px 0 !important;
@@ -5604,7 +5617,8 @@ body:has(.shell-vibrant),
 }
 .chat-bubble-agent ul,
 .chat-bubble-agent ol {
-  margin: 0.5em 0 0.75em 1.5em !important;
+  margin: 0.5em 0 0.75em !important;
+  margin-inline-start: 1.5em !important;
   padding: 0 !important;
   list-style: revert !important;
 }
@@ -5612,12 +5626,18 @@ body:has(.shell-vibrant),
   margin: 0 0 2px !important;
   padding: 0 !important;
 }
+/* Reserve marker space for items whose direction differs from their list. */
+.chat-markdown :is(ul, ol):dir(ltr) > li:dir(rtl),
+.chat-markdown :is(ul, ol):dir(rtl) > li:dir(ltr) {
+  margin-inline-start: 1.5em !important;
+}
 .chat-bubble-agent li > p {
   margin: 0 !important;
 }
 .chat-bubble-agent li > ul,
 .chat-bubble-agent li > ol {
-  margin: 2px 0 2px 16px !important;
+  margin: 2px 0 !important;
+  margin-inline-start: 16px !important;
 }
 .chat-bubble-agent h1,
 .chat-bubble-agent h2,
@@ -5659,7 +5679,7 @@ body:has(.shell-vibrant),
 }
 
 .chat-bubble-agent blockquote {
-  border-left: 3px solid var(--border-bright);
+  border-inline-start: 3px solid var(--border-bright);
   margin: 4px 0;
   padding: 2px 10px;
   color: var(--text-secondary);
@@ -5691,7 +5711,7 @@ body:has(.shell-vibrant),
 .chat-bubble-agent td {
   border: 1px solid var(--border-bright);
   padding: 6px 10px;
-  text-align: left;
+  text-align: start;
   overflow-wrap: anywhere;
 }
 

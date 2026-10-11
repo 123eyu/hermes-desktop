@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AgentMarkdown } from "./AgentMarkdown";
 
@@ -33,6 +33,117 @@ async function renderHighlighted(
 }
 
 describe("AgentMarkdown", () => {
+  // @lat: [[rtl-chat#Bidirectional message rendering#Independent prose blocks]]
+  it.each(["مرحبا بالعالم", "سلام دنیا", "שלום עולם"])(
+    "detects each prose block independently for %s followed by English",
+    (rtl) => {
+      const { container } = render(
+        <div dir="rtl">
+          <AgentMarkdown>{`${rtl}\n\nEnglish first: translate "שלום"?`}</AgentMarkdown>
+        </div>,
+      );
+      const paragraphs = container.querySelectorAll("p");
+      expect(paragraphs).toHaveLength(2);
+      expect(paragraphs[0]).toHaveAttribute("dir", "auto");
+      expect(paragraphs[1]).toHaveAttribute("dir", "auto");
+      expect(paragraphs[1].textContent).toBe(
+        'English first: translate "שלום"?',
+      );
+    },
+  );
+
+  // @lat: [[rtl-chat#Bidirectional message rendering#Structured mixed-language content]]
+  it("keeps independent list, quotation and table directions without losing Markdown semantics", () => {
+    const { container } = render(
+      <AgentMarkdown>
+        {[
+          "# عنوان فارسی",
+          "",
+          "- English item with سلام",
+          "- مورد فارسی با `value = 1;`",
+          "",
+          "> نقل قول فارسی",
+          "",
+          "| English | فارسی |",
+          "| :---: | --- |",
+          "| mixed שלום | مقدار |",
+          "",
+          "- [x] Completed task",
+        ].join("\n")}
+      </AgentMarkdown>,
+    );
+    for (const element of container.querySelectorAll(
+      "h1, ul, li, blockquote, th, td",
+    )) {
+      expect(element).toHaveAttribute("dir", "auto");
+    }
+    expect(container.querySelector("th")).toHaveStyle({ textAlign: "center" });
+    expect(container.querySelector("code")).toHaveAttribute("dir", "ltr");
+    expect(container.querySelector(".task-list-item")).not.toBeNull();
+    expect(container.querySelector('input[type="checkbox"]')).toBeChecked();
+  });
+
+  // @lat: [[rtl-chat#Bidirectional message rendering#Footnotes retain link targets]]
+  it("preserves GFM footnote definition IDs and return-link attributes", () => {
+    const { container } = render(
+      <AgentMarkdown>
+        {"سلام، یادداشت[^1]\n\n[^1]: English footnote"}
+      </AgentMarkdown>,
+    );
+    const reference = container.querySelector("[data-footnote-ref]");
+    const definition = container.querySelector('li[id="user-content-fn-1"]');
+    const backlink = container.querySelector("[data-footnote-backref]");
+    expect(reference).toHaveAttribute("href", "#user-content-fn-1");
+    expect(definition).toHaveAttribute("dir", "auto");
+    expect(backlink).toHaveAttribute("href", "#user-content-fnref-1");
+    expect(container.querySelector("section[data-footnotes]")).not.toBeNull();
+  });
+
+  // @lat: [[rtl-chat#Bidirectional message rendering#Code and toolbar isolation]]
+  it("keeps highlighted code and its copy controls LTR after RTL prose and preserves copied source", async () => {
+    const code = '# تعليق عربي\nconst message = "سلام";';
+    const copyToClipboard = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window, "hermesAPI", {
+      configurable: true,
+      value: { copyToClipboard },
+    });
+    const { container } = await renderHighlighted(
+      `سلام دنیا\n\n\`\`\`js\n${code}\n\`\`\``,
+    );
+    const block = container.querySelector(".chat-code-block");
+    expect(block).toHaveAttribute("dir", "ltr");
+    expect(block?.closest("pre")).toHaveAttribute("dir", "ltr");
+    expect(block?.querySelector(".chat-code-lang")?.textContent).toBe("js");
+    fireEvent.click(block!.querySelector("button")!);
+    expect(copyToClipboard).toHaveBeenCalledWith(code);
+  });
+
+  // @lat: [[rtl-chat#Bidirectional message rendering#Plain diagrams and diffs]]
+  it("pins plain diagrams and colored diffs to LTR in an RTL message", () => {
+    const { container } = render(
+      <AgentMarkdown>
+        {[
+          "سلام",
+          "",
+          "```text",
+          "├── src",
+          "└── שלום",
+          "```",
+          "",
+          "```diff",
+          "+سلام",
+          "-hello",
+          "```",
+        ].join("\n")}
+      </AgentMarkdown>,
+    );
+    expect(container.querySelector(".chat-code-plain")).not.toBeNull();
+    expect(container.querySelector(".chat-diff-add")).not.toBeNull();
+    for (const block of container.querySelectorAll(".chat-code-block")) {
+      expect(block).toHaveAttribute("dir", "ltr");
+    }
+  });
+
   it("renders box-drawing tree diagrams as plain text, even with the highlighter loaded", async () => {
     // Control first: prove highlighting works in this environment, and leave
     // the highlighter module loaded so the tree block below would use Prism
