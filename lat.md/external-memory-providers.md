@@ -12,6 +12,8 @@ Direct Remote discovery stays server-authoritative through the selected profile'
 
 Project-local opt-in plugins and Python entry-point enumeration remain outside the Desktop directory scanner. Agent availability checks may execute plugins; Desktop deliberately does not use them for listing.
 
+SSH directory discovery cannot verify a managed launcher's service user or custom runtime home without executing that launcher. An executable managed hook or nondefault SSH `HERMES_HOME` therefore reports discovery unavailable instead of listing guessed home contents.
+
 ## Optional Graphnosis MCP
 
 Graphnosis requires its separately installed app and memory plugin. The optional Local action registers a pinned stdio relay in the captured profile without downloading or starting it.

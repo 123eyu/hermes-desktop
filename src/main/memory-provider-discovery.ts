@@ -67,6 +67,13 @@ import json, os, sys
 payload = json.load(sys.stdin)
 profile = payload.get("profile")
 base = os.path.expanduser("~/.hermes")
+launchers = [os.path.expanduser("~/.config/hermes-desktop/remote-hermes"),
+             os.path.join(base, "desktop-remote-hermes")]
+if any(os.path.isfile(path) and os.access(path, os.X_OK) for path in launchers):
+    raise RuntimeError("Memory provider discovery is unavailable for a managed SSH launcher; its runtime plugin home cannot be verified by directory inspection.")
+configured_home = os.environ.get("HERMES_HOME")
+if configured_home and os.path.realpath(os.path.expanduser(configured_home)) != os.path.realpath(base):
+    raise RuntimeError("Memory provider discovery is unavailable for a custom SSH HERMES_HOME.")
 home = os.path.join(base, "profiles", profile) if profile and profile != "default" else base
 known = ${JSON.stringify(MEMORY_PROVIDER_METADATA)}
 roots = [os.path.join(base, "hermes-agent", "plugins", "memory"),

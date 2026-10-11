@@ -3400,16 +3400,12 @@ export async function sshDiscoverMemoryProviders(
   const activeProvider =
     (await sshGetConfigValue(config, "memory.provider", profile)) || "";
   const script = memoryProviderDiscoveryScript();
-  try {
-    const out = await sshPython(
-      config,
-      script,
-      pythonJsonInput({ profile, active: activeProvider }),
-    );
-    return JSON.parse(out.trim() || "[]");
-  } catch {
-    return [];
-  }
+  const out = await sshPython(
+    config,
+    script,
+    pythonJsonInput({ profile, active: activeProvider }),
+  );
+  return JSON.parse(out.trim() || "[]");
 }
 
 // ── Models library ─────────────────────────────────────────────────────────────
