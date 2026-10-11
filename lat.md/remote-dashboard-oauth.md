@@ -8,6 +8,8 @@ The public dashboard status endpoint and raw-gateway health endpoint select toke
 
 [[src/main/remote-oauth.ts#probeRemoteAuthMode]] reads `/api/status`; `auth_required: true` selects OAuth. A `404` or `405` then probes `/health` with the supplied `API_SERVER_KEY`: a healthy response or an explicit `401`/`403` identifies the raw token gateway. Other probe failures remain errors rather than transport guesses.
 
+Configured reverse-proxy URL credentials become Basic headers for both discovery routes, with encoded userinfo decoded before transmission. Public status never receives the dashboard token; raw health retains Bearer authentication when no proxy credentials are configured.
+
 The first-run `connect-remote-gateway` operation in [[src/main/ipc/register.ts#registerIpcHandlers]] owns detection, authentication, validation, and configuration commit as one main-process transaction. OAuth opens the dedicated login window before saving; token mode verifies `/health`; either failure leaves the previous connection configuration untouched. [[src/renderer/src/screens/Welcome/Welcome.tsx#Welcome]] surfaces that single operation and explains that the remote key comes from `API_SERVER_KEY` in the remote `~/.hermes/.env`.
 
 The public startup probe uses `/api/status` without a stored token after OAuth is selected, avoiding the authenticated `/health` redirect and stale-token false negatives.
@@ -129,3 +131,7 @@ Cookie-aware auxiliary requests use the caller's captured connection even after 
 ### Anonymous MCP compatibility
 
 Explicit token dashboards without configured keys can list MCP servers anonymously for a named profile, preserving open-gateway compatibility without weakening OAuth authentication.
+
+### Reverse proxy discovery
+
+Automatic detection forwards configured Basic proxy credentials to status and raw-health probes without putting userinfo in fetch URLs, while non-proxy raw gateways retain their Bearer header.

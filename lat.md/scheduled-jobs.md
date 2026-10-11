@@ -109,3 +109,15 @@ The shared builder removes legacy API suffixes and saved query or fragment data,
 ### Dashboard URL profile routing
 
 Named profiles are query-scoped without replacing explicit profile choices or other request parameters; default-profile callers retain their existing explicit or omitted query behavior.
+
+### History automatic proxy authentication
+
+Actual discovery and cron requests pass a Basic proxy together for anonymous and token dashboards, preserve default and named profile queries, and keep dashboard tokens out of public discovery.
+
+### History proxy authentication refusal
+
+Proxy 401 or 403 replies stop before history access; auto-selected OAuth failures stay on cookie transport without retrying an anonymous cron request.
+
+### History deferred proxy target
+
+Private settings changed while a real proxy discovery reply is pending revoke the captured history target before any cron request can be admitted.
