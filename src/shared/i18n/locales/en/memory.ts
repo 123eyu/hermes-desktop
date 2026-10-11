@@ -18,6 +18,8 @@ export default {
     "e.g. User prefers TypeScript over JavaScript. Always use strict mode.",
   userProfilePlaceholder:
     "e.g. Name: Alex. Senior developer. Prefers concise answers. Uses macOS with zsh. Timezone: PST.",
+  providerDiscoveryUnavailable: "Memory provider discovery is unavailable.",
+  configuredProvider: "Configured provider",
   noProvidersFound: "No memory providers found in this installation.",
   openProviderWebsite: "Open provider website",
   noMemoriesYet:
@@ -58,5 +60,7 @@ export default {
     openviking:
       "Session-managed memory with tiered retrieval and knowledge browsing",
     byterover: "Persistent knowledge tree with tiered retrieval via brv CLI",
+    graphnosis:
+      "Local encrypted engram graph — auto-prefetch, recall, remember. Requires Graphnosis app (no API key)",
   },
 } as const;

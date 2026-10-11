@@ -1,3 +1,5 @@
+import { discoverMemoryProviderDirectories } from "./memory-provider-discovery";
+import { getYamlPath } from "./yaml-path";
 import { buildInstallErrorMessage } from "./installer-errors";
 import { spawn, execFile, execFileSync } from "child_process";
 import {
@@ -1395,85 +1397,11 @@ export interface MemoryProviderInfo {
 export function discoverMemoryProviders(
   profile?: string,
 ): MemoryProviderInfo[] {
-  const pluginsDir = join(HERMES_REPO, "plugins", "memory");
-  if (!existsSync(pluginsDir)) return [];
-
-  const activeProvider = getActiveMemoryProvider(profile);
-
-  // Known providers with their metadata (from plugin.yaml files)
-  const KNOWN_PROVIDERS: Record<
-    string,
-    { description: string; envVars: string[]; pip?: string }
-  > = {
-    honcho: {
-      description: "memory.providers.honcho",
-      envVars: ["HONCHO_API_KEY"],
-      pip: "honcho-ai",
-    },
-    hindsight: {
-      description: "memory.providers.hindsight",
-      envVars: ["HINDSIGHT_API_KEY", "HINDSIGHT_API_URL", "HINDSIGHT_BANK_ID"],
-      pip: "hindsight-client",
-    },
-    mem0: {
-      description: "memory.providers.mem0",
-      envVars: ["MEM0_API_KEY"],
-      pip: "mem0ai",
-    },
-    retaindb: {
-      description: "memory.providers.retaindb",
-      envVars: ["RETAINDB_API_KEY"],
-    },
-    supermemory: {
-      description: "memory.providers.supermemory",
-      envVars: ["SUPERMEMORY_API_KEY"],
-      pip: "supermemory",
-    },
-    holographic: {
-      description: "memory.providers.holographic",
-      envVars: [],
-    },
-    openviking: {
-      description: "memory.providers.openviking",
-      envVars: ["OPENVIKING_ENDPOINT", "OPENVIKING_API_KEY"],
-    },
-    byterover: {
-      description: "memory.providers.byterover",
-      envVars: ["BRV_API_KEY"],
-    },
-  };
-
-  const results: MemoryProviderInfo[] = [];
-
-  try {
-    const dirs = readdirSync(pluginsDir, { withFileTypes: true });
-    for (const d of dirs) {
-      if (!d.isDirectory() || d.name.startsWith("_")) continue;
-      const name = d.name;
-      const known = KNOWN_PROVIDERS[name];
-      const initFile = join(pluginsDir, name, "__init__.py");
-      const installed = existsSync(initFile);
-
-      results.push({
-        name,
-        description: known?.description || name,
-        installed,
-        active: name === activeProvider,
-        envVars: known?.envVars || [],
-      });
-    }
-  } catch {
-    /* non-fatal */
-  }
-
-  // Sort: active first, then installed, then alphabetical
-  results.sort((a, b) => {
-    if (a.active !== b.active) return a.active ? -1 : 1;
-    if (a.installed !== b.installed) return a.installed ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
-
-  return results;
+  return discoverMemoryProviderDirectories(
+    join(HERMES_REPO, "plugins", "memory"),
+    profileHome(profile),
+    getActiveMemoryProvider(profile),
+  );
 }
 
 /**
@@ -1484,8 +1412,7 @@ export function getActiveMemoryProvider(profile?: string): string {
     const configPath = join(profileHome(profile), "config.yaml");
     if (!existsSync(configPath)) return "";
     const content = readFileSync(configPath, "utf-8");
-    const match = content.match(/^\s*provider:\s*["']?(\w+)["']?\s*$/m);
-    return match?.[1] || "";
+    return getYamlPath(content, "memory.provider") || "";
   } catch {
     return "";
   }

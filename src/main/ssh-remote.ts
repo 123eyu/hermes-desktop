@@ -1,3 +1,4 @@
+import { memoryProviderDiscoveryScript } from "./memory-provider-discovery";
 /**
  * SSH-proxied implementations of all hermes operations.
  * Used when connection mode is "ssh" — every feature that normally reads/writes
@@ -3398,47 +3399,13 @@ export async function sshDiscoverMemoryProviders(
 ): Promise<MemoryProviderInfo[]> {
   const activeProvider =
     (await sshGetConfigValue(config, "memory.provider", profile)) || "";
-  const script = `
-import json, os
-known = {
-    "honcho": {"description": "memory.providers.honcho", "envVars": ["HONCHO_API_KEY"]},
-    "hindsight": {"description": "memory.providers.hindsight", "envVars": ["HINDSIGHT_API_KEY", "HINDSIGHT_API_URL", "HINDSIGHT_BANK_ID"]},
-    "mem0": {"description": "memory.providers.mem0", "envVars": ["MEM0_API_KEY"]},
-    "retaindb": {"description": "memory.providers.retaindb", "envVars": ["RETAINDB_API_KEY"]},
-    "supermemory": {"description": "memory.providers.supermemory", "envVars": ["SUPERMEMORY_API_KEY"]},
-    "holographic": {"description": "memory.providers.holographic", "envVars": []},
-    "openviking": {"description": "memory.providers.openviking", "envVars": ["OPENVIKING_ENDPOINT", "OPENVIKING_API_KEY"]},
-    "byterover": {"description": "memory.providers.byterover", "envVars": ["BRV_API_KEY"]},
-}
-roots = [
-    os.path.expanduser("~/.hermes/plugins/memory"),
-    os.path.expanduser("~/hermes/plugins/memory"),
-    os.path.expanduser("~/hermes-agent/plugins/memory"),
-]
-names = set(known)
-for root in roots:
-    if os.path.isdir(root):
-        for name in os.listdir(root):
-            if not name.startswith("_") and os.path.isdir(os.path.join(root, name)):
-                names.add(name)
-result = []
-for name in sorted(names):
-    meta = known.get(name, {"description": f"memory.providers.{name}", "envVars": []})
-    result.append({
-        "name": name,
-        "description": meta["description"],
-        "envVars": meta["envVars"],
-        "installed": True,
-        "active": name == ${JSON.stringify(activeProvider)},
-    })
-print(json.dumps(result))
-`;
-  try {
-    const out = await sshPython(config, script);
-    return JSON.parse(out.trim() || "[]");
-  } catch {
-    return [];
-  }
+  const script = memoryProviderDiscoveryScript();
+  const out = await sshPython(
+    config,
+    script,
+    pythonJsonInput({ profile, active: activeProvider }),
+  );
+  return JSON.parse(out.trim() || "[]");
 }
 
 // ── Models library ─────────────────────────────────────────────────────────────

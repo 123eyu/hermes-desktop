@@ -1,3 +1,4 @@
+import { GraphnosisMcp } from "./GraphnosisMcp";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useI18n } from "../../components/useI18n";
 import { Wrench, Plug, Puzzle, Search, X } from "../../assets/icons";
@@ -594,6 +595,10 @@ function Tools({
       })
     : mcpServers;
 
+  const graphnosisMcpInstalled = mcpServers.some(
+    (s) => s.name === "graphnosis",
+  );
+
   if (loading) {
     return (
       <div className="tools-container">
@@ -735,6 +740,10 @@ function Tools({
 
               {mcpError && <div className="tools-error">{mcpError}</div>}
               {mcpMessage && <div className="tools-success">{mcpMessage}</div>}
+
+              {!graphnosisMcpInstalled && (
+                <GraphnosisMcp profile={profile} onInstalled={reloadMcp} />
+              )}
 
               {mcpServers.length === 0 ? (
                 <div className="tools-empty">

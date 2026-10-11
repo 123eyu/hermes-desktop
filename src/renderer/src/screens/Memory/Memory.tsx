@@ -58,6 +58,7 @@ function MemoryEditor({
   const [error, setError] = useState("");
   const [memoryProvider, setMemoryProvider] = useState<string | null>(null);
   const [providers, setProviders] = useState<MemoryProviderInfo[]>([]);
+  const [providerError, setProviderError] = useState("");
   const [dataRevision, setDataRevision] = useState(0);
   const [writing, setWriting] = useState(false);
   const pendingWrites = useRef(0);
@@ -91,6 +92,7 @@ function MemoryEditor({
     loadingRef.current = true;
     setLoading(true);
     setError("");
+    setProviderError("");
     try {
       const revision = await waitForProfileMemoryMutations(target);
       if (!live() || request !== generation.current) return;
@@ -101,7 +103,15 @@ function MemoryEditor({
       const [d, provider, provs] = await Promise.all([
         window.hermesAPI.readMemory(profile, target),
         window.hermesAPI.getConfig("memory.provider", profile, target),
-        window.hermesAPI.discoverMemoryProviders(profile, target),
+        // Discovery can be unavailable even when SSH file/config reads work.
+        // Keep that capability failure confined to the Providers tab.
+        window.hermesAPI.discoverMemoryProviders(profile, target).then(
+          (providers) => ({ providers, error: "" }),
+          (err: unknown) => ({
+            providers: [],
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        ),
       ]);
       if (!live() || request !== generation.current) return;
       if (profileMemoryRevision(target) !== revision) {
@@ -112,7 +122,8 @@ function MemoryEditor({
       snapshotValid.current = true;
       setData(d as MemoryData);
       setMemoryProvider(provider);
-      setProviders(provs);
+      setProviders(provs.providers);
+      setProviderError(provs.error);
       // Entry positions and the other tabs' initial state belong to this read.
       // Reset them together; Soul has an independent lifetime and autosave.
       setDataRevision((revision) => revision + 1);
@@ -266,7 +277,19 @@ function MemoryEditor({
           />
         )}
 
-        {tab === "providers" && (
+        {tab === "providers" && providerError && (
+          <div className="memory-error" role="alert">
+            <p>{t("memory.providerDiscoveryUnavailable")}</p>
+            <p>{providerError}</p>
+            {memoryProvider && (
+              <p>
+                {t("memory.configuredProvider")}: <code>{memoryProvider}</code>
+              </p>
+            )}
+          </div>
+        )}
+
+        {tab === "providers" && !providerError && (
           <MemoryProviders
             providers={providers}
             activeProvider={memoryProvider}

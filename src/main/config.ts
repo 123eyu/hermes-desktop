@@ -11,6 +11,7 @@ import {
   safeWriteFile,
 } from "./utils";
 import { getYamlPath } from "./yaml-path";
+import { splitSingleYamlDocument } from "./yaml-document";
 // NOTE: ./secrets imports back into this module (getConfigValue / readEnv), so
 // this is a static import that closes a cycle (config -> secrets ->
 // commandProvider -> config). It is safe ONLY because BOTH sides defer all work
@@ -907,43 +908,10 @@ export function setConfigValue(
 }
 
 // @lat: [[speech-playback#Single-document configuration boundary]]
-function splitSpeechYamlDocument(content: string): {
-  prefix: string;
-  body: string;
-  suffix: string;
-} | null {
-  let bodyStart = 0;
-  let bodyEnd = content.length;
-  let started = false;
-  let ended = false;
-  let sawContent = false;
-  let cursor = 0;
-  while (cursor < content.length) {
-    const end = content.indexOf("\n", cursor);
-    const next = end < 0 ? content.length : end + 1;
-    const line = content.slice(cursor, end < 0 ? next : end).replace(/\r$/, "");
-    const marker = line.match(/^(---|\.\.\.)(?:[ \t]+(?:#.*)?)?$/)?.[1];
-    if (marker === "---") {
-      if (started || ended || sawContent) return null;
-      started = true;
-      bodyStart = next;
-    } else if (marker === "...") {
-      if (ended) return null;
-      ended = true;
-      bodyEnd = cursor;
-    } else if (line.trim() && !line.trimStart().startsWith("#")) {
-      // Directives or inline document headers need a full YAML editor. No
-      // setting may be read/replaced across another document or its trailer.
-      if (ended || /^(?:%|---[ \t]|\.\.\.[ \t])/.test(line)) return null;
-      sawContent = true;
-    }
-    cursor = next;
-  }
-  return {
-    prefix: content.slice(0, bodyStart),
-    body: content.slice(bodyStart, bodyEnd),
-    suffix: content.slice(bodyEnd),
-  };
+function splitSpeechYamlDocument(
+  content: string,
+): ReturnType<typeof splitSingleYamlDocument> {
+  return splitSingleYamlDocument(content);
 }
 
 /** Insert only the known speech leaf into plain, nested YAML mappings. */

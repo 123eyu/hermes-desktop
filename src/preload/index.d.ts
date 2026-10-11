@@ -1430,6 +1430,7 @@ interface HermesAPI {
       auth?: string;
     },
     profile?: string,
+    target?: ProfileEditorTarget,
   ) => Promise<{ success: boolean; error?: string }>;
   updateMcpServer: (
     originalName: string,

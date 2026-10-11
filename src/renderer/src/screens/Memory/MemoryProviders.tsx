@@ -22,6 +22,7 @@ const PROVIDER_URLS: Record<string, string> = {
   retaindb: "https://retaindb.com",
   supermemory: "https://supermemory.ai",
   byterover: "https://app.byterover.dev",
+  graphnosis: "https://graphnosis.com/download",
 };
 
 import {

@@ -1,4 +1,8 @@
+import type { ProfileEditorTarget } from "../shared/profile-editor-target";
+import { resolveProfileEditorTarget } from "./profile-editor-target";
 import { execFile } from "child_process";
+import { load as loadYaml } from "js-yaml";
+import { splitSingleYamlDocument } from "./yaml-document";
 import { existsSync, readFileSync } from "fs";
 import { profilePaths, safeWriteFile } from "./utils";
 import { getApiUrl, getRemoteAuthHeader, isRemoteMode } from "./hermes";
@@ -724,15 +728,88 @@ export async function listMcpServers(
   return parseMcpServersFromConfig(readConfig(profile));
 }
 
+/** Preserve a captured profile's document and existing server blocks verbatim. */
+// @lat: [[external-memory-providers#Captured MCP YAML safety]]
+function appendCapturedMcpServer(
+  content: string,
+  input: McpServerInput,
+): string {
+  const document = splitSingleYamlDocument(content);
+  if (!document)
+    throw new Error("MCP registration requires one YAML document.");
+  const parsed = loadYaml(content);
+  const emptyDocument = document.body
+    .split(/\r?\n/)
+    .every((line) => !line.trim() || line.trimStart().startsWith("#"));
+  if (
+    parsed !== undefined &&
+    !(parsed === null && emptyDocument) &&
+    (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
+  )
+    throw new Error("MCP registration requires a YAML mapping.");
+  const existing = (parsed as Record<string, unknown> | undefined)?.mcp_servers;
+  const block = findMcpBlock(document.body);
+  if (
+    existing !== undefined &&
+    !(existing === null && block) &&
+    (existing === null ||
+      typeof existing !== "object" ||
+      Array.isArray(existing))
+  )
+    throw new Error("MCP servers must use a plain YAML mapping.");
+  if (existing && Object.hasOwn(existing, input.name))
+    throw new Error(`MCP server "${input.name}" already exists.`);
+  // Quoted keys, aliases and flow maps need a YAML editor. Do not append a
+  // duplicate root key or rewrite an unsupported existing block.
+  if (existing !== undefined && !block)
+    throw new Error("MCP servers must use a plain YAML mapping.");
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  let insertion = document.body.length;
+  if (block) {
+    insertion = 0;
+    for (let i = 0; i < block.endLine; i++) {
+      const end = document.body.indexOf("\n", insertion);
+      insertion = end < 0 ? document.body.length : end + 1;
+    }
+  }
+  const before = document.body.slice(0, insertion);
+  const after = document.body.slice(insertion);
+  const rendered = renderServerBlock(input).join(newline) + newline;
+  const addition =
+    (before && !before.endsWith("\n") ? newline : "") +
+    (block ? "" : (before ? newline : "") + "mcp_servers:" + newline) +
+    rendered;
+  const body = before + addition + after;
+  const separator =
+    document.prefix && !document.prefix.endsWith("\n") ? newline : "";
+  const result = document.prefix + separator + body + document.suffix;
+  const saved = loadYaml(result) as { mcp_servers?: Record<string, unknown> };
+  if (!saved?.mcp_servers || !Object.hasOwn(saved.mcp_servers, input.name))
+    throw new Error("Could not register the MCP server in this YAML layout.");
+  return result;
+}
+
 export async function addMcpServer(
   input: McpServerInput,
   profile?: string,
+  target?: ProfileEditorTarget,
 ): Promise<McpOperationResult> {
   const validated = validateServerInput(input);
   if (!validated.ok) return { success: false, error: validated.error };
 
   try {
-    if (isRemoteMode()) {
+    if (target) {
+      const captured = resolveProfileEditorTarget(profile, target);
+      if (captured.connection.mode !== "local") {
+        return {
+          success: false,
+          error:
+            "Captured MCP installation is available only on this local machine.",
+        };
+      }
+      profile = captured.profile;
+    }
+    if (!target && isRemoteMode()) {
       await mcpApi(
         "/api/mcp/servers",
         {
@@ -752,6 +829,15 @@ export async function addMcpServer(
         },
         profile,
       );
+      return { success: true };
+    }
+
+    if (target) {
+      const content = appendCapturedMcpServer(
+        readConfig(profile),
+        validated.value,
+      );
+      safeWriteFile(configFilePath(profile), content);
       return { success: true };
     }
 

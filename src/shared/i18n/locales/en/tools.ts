@@ -141,5 +141,11 @@ export default {
   mcpCatalogLoadFailed: "Failed to load MCP catalog.",
   mcpCatalogEmpty: "No catalog entries available.",
   mcpInstall: "Install",
+  mcpInstallWorking: "Installing…",
   mcpInstalledStatus: "Installed",
+  graphnosisMcpTitle: "Graphnosis memory (optional)",
+  graphnosisMcpDescription:
+    "Register Graphnosis MCP for this local profile. Requires Node.js and the Graphnosis app running on this machine with cortex unlocked. The relay downloads when Hermes starts it.",
+  graphnosisMcpInstall: "Install Graphnosis MCP",
+  graphnosisMcpDownload: "Get Graphnosis app",
 } as const;
