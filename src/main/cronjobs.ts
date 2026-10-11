@@ -748,6 +748,20 @@ function remoteRunsUnsupported(err: unknown): boolean {
   return status === 404 || status === 405;
 }
 
+/** First `chars` characters of a file without reading the rest of it. */
+async function readFilePreview(path: string, chars: number): Promise<string> {
+  const { open } = await import("fs/promises");
+  const handle = await open(path, "r");
+  try {
+    // UTF-8 needs at most 4 bytes per character.
+    const buf = Buffer.alloc(chars * 4);
+    const { bytesRead } = await handle.read(buf, 0, buf.length, 0);
+    return buf.toString("utf-8", 0, bytesRead).slice(0, chars);
+  } finally {
+    await handle.close();
+  }
+}
+
 function localRunDir(jobId: string, profile?: string): string {
   return join(profileHome(profile), "cron", "output", jobId);
 }
@@ -799,19 +813,32 @@ export async function listCronRuns(
   try {
     const { readdir, stat } = await import("fs/promises");
     const names = (await readdir(dir)).filter((n) => n.endsWith(".md"));
+    // Stat everything (cheap), then read only the newest `limit` previews.
+    const stats = await Promise.all(
+      names.map(async (name) => {
+        try {
+          return { name, mtimeMs: (await stat(join(dir, name))).mtimeMs };
+        } catch {
+          return null; // removed between readdir and stat
+        }
+      }),
+    );
+    const newest = stats
+      .filter((s): s is { name: string; mtimeMs: number } => s !== null)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)
+      .slice(0, Math.max(1, limit));
     const runs = await Promise.all(
-      names.map(async (name): Promise<CronRun> => {
-        const info = await stat(join(dir, name));
+      newest.map(async ({ name, mtimeMs }): Promise<CronRun> => {
         let preview = "";
         try {
-          preview = (await readFile(join(dir, name), "utf-8")).slice(0, 300);
+          preview = await readFilePreview(join(dir, name), 300);
         } catch {
           /* unreadable file: keep an empty preview */
         }
         return {
           id: `file:${name}`,
           source: "cron_output",
-          started_at: Math.floor(info.mtimeMs / 1000),
+          started_at: Math.floor(mtimeMs / 1000),
           ended_at: null,
           title: name.replace(/\.md$/, ""),
           preview,
@@ -822,8 +849,7 @@ export async function listCronRuns(
         };
       }),
     );
-    runs.sort((a, b) => Number(b.started_at) - Number(a.started_at));
-    return { success: true, runs: runs.slice(0, limit) };
+    return { success: true, runs: runs };
   } catch (err) {
     return { success: false, runs: [], error: (err as Error).message };
   }

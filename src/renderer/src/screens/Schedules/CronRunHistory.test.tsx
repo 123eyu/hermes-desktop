@@ -61,6 +61,42 @@ describe("CronRunHistory", () => {
     await waitFor(() => expect(screen.queryByText(/all good/)).toBeNull());
   });
 
+  it("ignores a slower output response from a previously opened run", async () => {
+    const run2 = { ...run, id: "run2", preview: "second run" };
+    let resolveFirst: (v: unknown) => void = () => {};
+    const getCronRunOutput = vi.fn((_job: string, id: string) =>
+      id === run.id
+        ? new Promise((resolve) => {
+            resolveFirst = resolve;
+          })
+        : Promise.resolve({ success: true, output: "output of B" }),
+    );
+    mockApi({
+      listCronRuns: vi
+        .fn()
+        .mockResolvedValue({ success: true, runs: [run, run2] }),
+      getCronRunOutput,
+    });
+    render(<CronRunHistory jobId="job1" />);
+    fireEvent.click(await screen.findByText("rebuilt 3 files"));
+    fireEvent.click(await screen.findByText("second run"));
+    expect(await screen.findByText("output of B")).toBeTruthy();
+    resolveFirst({ success: true, output: "output of A" });
+    await Promise.resolve();
+    expect(screen.queryByText("output of A")).toBeNull();
+    expect(screen.getByText("output of B")).toBeTruthy();
+  });
+
+  it("re-fetches the run list when refreshKey changes, keeping the list visible", async () => {
+    const { rerender } = render(<CronRunHistory jobId="job1" refreshKey={0} />);
+    await screen.findByText("rebuilt 3 files");
+    rerender(<CronRunHistory jobId="job1" refreshKey={1} />);
+    await waitFor(() =>
+      expect(window.hermesAPI.listCronRuns).toHaveBeenCalledTimes(2),
+    );
+    expect(screen.getByText("rebuilt 3 files")).toBeTruthy();
+  });
+
   it("says when only a preview of the output exists", async () => {
     mockApi({
       getCronRunOutput: vi

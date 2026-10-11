@@ -16,6 +16,8 @@ Token dashboard connection tests use public status only for discovery, then veri
 
 Each job card has a history toggle backed by [[src/main/cronjobs.ts#listCronRuns]] and [[src/main/cronjobs.ts#getCronRunOutput]]. Remote lists the dashboard's `/api/cron/jobs/{id}/runs` and reads an agent run's text from its `cron_*` session; local reads the saved output files.
 
+Local history stats the files and reads only the newest page of previews. The expanded list re-fetches whenever the jobs reload, and output requests are sequenced so a slower earlier response never replaces the run currently open.
+
 Script-only remote runs have no endpoint for the saved file, so only their preview is shown, marked partial only when it was actually cut. SSH reports the history as unsupported.
 
 ## Test specifications

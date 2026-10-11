@@ -80,10 +80,13 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
   const [weeklyTime, setWeeklyTime] = useState("09:00");
   const [customCron, setCustomCron] = useState("");
 
+  const [historyRefresh, setHistoryRefresh] = useState(0);
+
   const loadJobs = useCallback(async (): Promise<void> => {
     try {
       const list = await window.hermesAPI.listCronJobs(true, profile);
       setJobs(list);
+      setHistoryRefresh((n) => n + 1);
     } catch {
       setError(t("schedules.loadFailed"));
     } finally {
@@ -667,7 +670,11 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
               )}
 
               {historyJob === job.id && (
-                <CronRunHistory jobId={job.id} profile={profile} />
+                <CronRunHistory
+                  jobId={job.id}
+                  profile={profile}
+                  refreshKey={historyRefresh}
+                />
               )}
             </div>
           ))}

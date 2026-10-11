@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "../../components/useI18n";
 
 type Runs = Awaited<ReturnType<typeof window.hermesAPI.listCronRuns>>;
@@ -34,9 +34,12 @@ function tokenSummary(run: Run): string {
 export function CronRunHistory({
   jobId,
   profile,
+  refreshKey = 0,
 }: {
   jobId: string;
   profile?: string;
+  /** Bump to re-fetch the run list (after a run is triggered or jobs refresh). */
+  refreshKey?: number;
 }): React.JSX.Element {
   const { t } = useI18n();
   const [runs, setRuns] = useState<Run[] | null>(null);
@@ -48,12 +51,22 @@ export function CronRunHistory({
   > | null>(null);
   const [outputLoading, setOutputLoading] = useState(false);
 
+  // Only the latest output request may write state; a bump also drops the
+  // result of an in-flight request after the job or profile changes.
+  const outputRequest = useRef(0);
+
+  useEffect(() => {
+    outputRequest.current += 1;
+    setRuns(null);
+    setOpenRun(null);
+    setOutput(null);
+    setOutputLoading(false);
+  }, [jobId, profile]);
+
   useEffect(() => {
     let cancelled = false;
-    setRuns(null);
     setListError("");
     setUnsupported(false);
-    setOpenRun(null);
     window.hermesAPI
       .listCronRuns(jobId, 20, profile)
       .then((res) => {
@@ -73,29 +86,37 @@ export function CronRunHistory({
     return () => {
       cancelled = true;
     };
-  }, [jobId, profile]);
+  }, [jobId, profile, refreshKey]);
 
   const toggleRun = useCallback(
     async (runId: string): Promise<void> => {
       if (openRun === runId) {
+        outputRequest.current += 1;
         setOpenRun(null);
+        setOutputLoading(false);
         return;
       }
+      const request = ++outputRequest.current;
       setOpenRun(runId);
       setOutput(null);
       setOutputLoading(true);
       try {
-        setOutput(
-          await window.hermesAPI.getCronRunOutput(jobId, runId, profile),
+        const result = await window.hermesAPI.getCronRunOutput(
+          jobId,
+          runId,
+          profile,
         );
+        if (request === outputRequest.current) setOutput(result);
       } catch (err) {
-        setOutput({
-          success: false,
-          output: "",
-          error: err instanceof Error ? err.message : String(err),
-        });
+        if (request === outputRequest.current) {
+          setOutput({
+            success: false,
+            output: "",
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
       } finally {
-        setOutputLoading(false);
+        if (request === outputRequest.current) setOutputLoading(false);
       }
     },
     [jobId, profile, openRun],
