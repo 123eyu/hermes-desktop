@@ -15,6 +15,7 @@ import {
   cycleRunId,
   runIdAtOrdinal,
   loadingSessionIds as deriveLoadingSessionIds,
+  createdSessionIds as deriveCreatedSessionIds,
 } from "./chatRuns";
 import { ActiveSessionsBar } from "./ActiveSessionsBar";
 import { StatusBar } from "./StatusBar";
@@ -137,6 +138,10 @@ function Layout({
   const loadingSessionIds = useMemo(
     () => deriveLoadingSessionIds(runs),
     [runs],
+  );
+  const createdSessionIds = useMemo(
+    () => deriveCreatedSessionIds(runs, connectionId, activeProfile),
+    [runs, connectionId, activeProfile],
   );
 
   const updateSidebarScrollbar = useCallback((visible: boolean) => {
@@ -748,6 +753,7 @@ function Layout({
                   activeProfile={activeProfile}
                   currentSessionId={currentSessionId}
                   loadingSessionIds={loadingSessionIds}
+                  createdSessionIds={createdSessionIds}
                   resumingSessionId={resumingSessionId}
                   onSelect={handleResumeSession}
                   onSessionDeleted={(id) => {
