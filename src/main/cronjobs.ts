@@ -677,3 +677,265 @@ export async function triggerCronJob(
   const result = await runCronCommand(["run", jobId], profile);
   return { success: result.success, error: result.error };
 }
+
+// ── Run history / output ────────────────────────────────────────────────────
+
+export interface CronRun {
+  /** Opaque run id: a `cron_<job>_<ts>` session id, `cron_output:<job>:<stem>`, or `file:<name>` locally. */
+  id: string;
+  source: string;
+  started_at: number | string | null;
+  ended_at: number | string | null;
+  title: string;
+  preview: string;
+  message_count: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  is_active: boolean;
+}
+
+export interface CronRunsResult {
+  success: boolean;
+  runs: CronRun[];
+  error?: string;
+  /** The connection mode or server does not expose run history. */
+  unsupported?: boolean;
+}
+
+export interface CronRunOutputResult {
+  success: boolean;
+  output: string;
+  /** True when the text is only a preview of the real output. */
+  partial?: boolean;
+  /** True when the output was cut to fit MAX_RUN_OUTPUT_CHARS. */
+  truncated?: boolean;
+  error?: string;
+  unsupported?: boolean;
+}
+
+const MAX_RUN_OUTPUT_CHARS = 200_000;
+const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+
+function clampRunOutput(text: string): { output: string; truncated: boolean } {
+  return text.length > MAX_RUN_OUTPUT_CHARS
+    ? { output: text.slice(0, MAX_RUN_OUTPUT_CHARS), truncated: true }
+    : { output: text, truncated: false };
+}
+
+function asRunNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeRun(raw: Record<string, unknown>): CronRun {
+  const time = (v: unknown): number | string | null =>
+    typeof v === "string" ? v : asRunNumber(v);
+  return {
+    id: String(raw.id ?? ""),
+    source: String(raw.source ?? ""),
+    started_at: time(raw.started_at),
+    ended_at: time(raw.ended_at),
+    title: typeof raw.title === "string" ? raw.title : "",
+    preview: typeof raw.preview === "string" ? raw.preview : "",
+    message_count: asRunNumber(raw.message_count) ?? 0,
+    input_tokens: asRunNumber(raw.input_tokens),
+    output_tokens: asRunNumber(raw.output_tokens),
+    is_active: raw.is_active === true,
+  };
+}
+
+function remoteRunsUnsupported(err: unknown): boolean {
+  const status = (err as { statusCode?: number }).statusCode;
+  return status === 404 || status === 405;
+}
+
+/** First `chars` characters of a file without reading the rest of it. */
+async function readFilePreview(path: string, chars: number): Promise<string> {
+  const { open } = await import("fs/promises");
+  const handle = await open(path, "r");
+  try {
+    // UTF-8 needs at most 4 bytes per character.
+    const buf = Buffer.alloc(chars * 4);
+    const { bytesRead } = await handle.read(buf, 0, buf.length, 0);
+    return buf.toString("utf-8", 0, bytesRead).slice(0, chars);
+  } finally {
+    await handle.close();
+  }
+}
+
+function localRunDir(jobId: string, profile?: string): string {
+  return join(profileHome(profile), "cron", "output", jobId);
+}
+
+/** History of a job's runs, newest first. Remote: the dashboard `/runs`; local: saved output files. */
+export async function listCronRuns(
+  jobId: string,
+  limit = 20,
+  profile?: string,
+): Promise<CronRunsResult> {
+  if (!SAFE_SEGMENT.test(jobId)) {
+    return { success: false, runs: [], error: "Invalid job ID" };
+  }
+  const conn = getConnectionConfig();
+  if (conn.mode === "ssh") {
+    return {
+      success: false,
+      runs: [],
+      unsupported: true,
+      error: "Run history is not available over SSH yet.",
+    };
+  }
+  if (conn.mode === "remote") {
+    try {
+      const data = await remoteDashboardRequestJson<{
+        runs?: Record<string, unknown>[];
+      }>(
+        conn,
+        `${DASHBOARD_CRON_BASE}/${encodeURIComponent(jobId)}/runs?limit=${Math.max(1, Math.min(100, Math.floor(limit)))}`,
+        {},
+        profile,
+      );
+      return {
+        success: true,
+        runs: (data?.runs ?? []).map(normalizeRun).filter((r) => r.id),
+      };
+    } catch (err) {
+      return {
+        success: false,
+        runs: [],
+        unsupported: remoteRunsUnsupported(err),
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  const dir = localRunDir(jobId, profile);
+  if (!existsSync(dir)) return { success: true, runs: [] };
+  try {
+    const { readdir, stat } = await import("fs/promises");
+    const names = (await readdir(dir)).filter((n) => n.endsWith(".md"));
+    // Stat everything (cheap), then read only the newest `limit` previews.
+    const stats = await Promise.all(
+      names.map(async (name) => {
+        try {
+          return { name, mtimeMs: (await stat(join(dir, name))).mtimeMs };
+        } catch {
+          return null; // removed between readdir and stat
+        }
+      }),
+    );
+    const newest = stats
+      .filter((s): s is { name: string; mtimeMs: number } => s !== null)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)
+      .slice(0, Math.max(1, limit));
+    const runs = await Promise.all(
+      newest.map(async ({ name, mtimeMs }): Promise<CronRun> => {
+        let preview = "";
+        try {
+          preview = await readFilePreview(join(dir, name), 300);
+        } catch {
+          /* unreadable file: keep an empty preview */
+        }
+        return {
+          id: `file:${name}`,
+          source: "cron_output",
+          started_at: Math.floor(mtimeMs / 1000),
+          ended_at: null,
+          title: name.replace(/\.md$/, ""),
+          preview,
+          message_count: 0,
+          input_tokens: null,
+          output_tokens: null,
+          is_active: false,
+        };
+      }),
+    );
+    return { success: true, runs: runs };
+  } catch (err) {
+    return { success: false, runs: [], error: (err as Error).message };
+  }
+}
+
+/** Text of one run. Agent runs are sessions; script-only runs are limited to their preview remotely. */
+export async function getCronRunOutput(
+  jobId: string,
+  runId: string,
+  profile?: string,
+): Promise<CronRunOutputResult> {
+  if (
+    !SAFE_SEGMENT.test(jobId) ||
+    !SAFE_SEGMENT.test(runId.replace(/^file:/, ""))
+  ) {
+    return { success: false, output: "", error: "Invalid run ID" };
+  }
+  const conn = getConnectionConfig();
+  if (conn.mode === "ssh") {
+    return {
+      success: false,
+      output: "",
+      unsupported: true,
+      error: "Run output is not available over SSH yet.",
+    };
+  }
+
+  if (conn.mode === "remote") {
+    try {
+      if (runId.startsWith("cron_output:")) {
+        // No endpoint returns the saved file's text; the run row carries its
+        // preview, which is all the server exposes.
+        const runs = await listCronRuns(jobId, 100, profile);
+        const run = runs.runs.find((r) => r.id === runId);
+        if (!run) return { success: false, output: "", error: "Run not found" };
+        // The server cuts previews at 180 chars and ends a cut one with "…",
+        // so a shorter preview is the whole file, not just its beginning.
+        return {
+          success: true,
+          output: run.preview,
+          partial: run.preview.endsWith("…"),
+        };
+      }
+      const data = await remoteDashboardRequestJson<{
+        messages?: Array<Record<string, unknown>>;
+      }>(
+        conn,
+        `/api/sessions/${encodeURIComponent(runId)}/messages?order=oldest&limit=500`,
+        {},
+        profile,
+      );
+      const text = (data?.messages ?? [])
+        .map((m) => {
+          const role = String(m.role ?? "message");
+          const content =
+            typeof m.content === "string"
+              ? m.content
+              : m.content
+                ? JSON.stringify(m.content)
+                : "";
+          return content.trim() ? `[${role}]\n${content}` : "";
+        })
+        .filter(Boolean)
+        .join("\n\n");
+      return { success: true, ...clampRunOutput(text) };
+    } catch (err) {
+      return {
+        success: false,
+        output: "",
+        unsupported: remoteRunsUnsupported(err),
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  const name = runId.startsWith("file:") ? runId.slice(5) : "";
+  if (!name.endsWith(".md")) {
+    return { success: false, output: "", error: "Invalid run ID" };
+  }
+  try {
+    const text = await readFile(
+      join(localRunDir(jobId, profile), name),
+      "utf-8",
+    );
+    return { success: true, ...clampRunOutput(text) };
+  } catch (err) {
+    return { success: false, output: "", error: (err as Error).message };
+  }
+}

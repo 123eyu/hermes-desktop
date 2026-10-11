@@ -12,6 +12,14 @@ Direct remote schedules use the shared OAuth or token boundary and the selected 
 
 Token dashboard connection tests use public status only for discovery, then verify a protected session-list route with the candidate session-token header. Raw gateway health is public too, so gateway tests verify protected model access with the candidate Bearer token. Existing OAuth discovery remains separate from native sign-in.
 
+## Run history
+
+Each job card has a history toggle backed by [[src/main/cronjobs.ts#listCronRuns]] and [[src/main/cronjobs.ts#getCronRunOutput]]. Remote lists the dashboard's `/api/cron/jobs/{id}/runs` and reads an agent run's text from its `cron_*` session; local reads the saved output files.
+
+Local history stats the files and reads only the newest page of previews. The expanded list re-fetches whenever the jobs reload, and output requests are sequenced so a slower earlier response never replaces the run currently open.
+
+Script-only remote runs have no endpoint for the saved file, so only their preview is shown, marked partial only when it was actually cut. SSH reports the history as unsupported.
+
 ## Test specifications
 
 These tests protect state normalization at the boundary between Hermes cron data and the desktop schedule model.
