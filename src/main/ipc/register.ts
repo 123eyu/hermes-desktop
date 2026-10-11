@@ -258,8 +258,11 @@ import {
   remoteGetOAuthProviderStatuses,
 } from "../remote-provider-statuses";
 import {
+  remoteGatewayAction,
   remoteGatewayStatus,
   remoteRestartGateway,
+  remoteGatewayCommandPending,
+  remoteGatewayCommandStatus,
   remoteStartGateway,
   remoteStopGateway,
 } from "../remote-gateway";
@@ -2099,6 +2102,35 @@ export function registerIpcHandlers(context: IpcContext): void {
   );
 
   // Gateway
+  ipcMain.handle("gateway-command-status", async (_event, profile?: string) =>
+    getConnectionConfig().mode === "remote"
+      ? remoteGatewayCommandStatus(profile)
+      : { pending: false },
+  );
+  ipcMain.handle(
+    "remote-gateway-action",
+    async (_event, action: unknown, profile?: string) => {
+      if (
+        getConnectionConfig().mode !== "remote" ||
+        (action !== "start" && action !== "stop" && action !== "restart")
+      ) {
+        return {
+          success: false,
+          error: "Remote gateway action is unavailable for this connection.",
+          failureKind: "failed",
+        };
+      }
+      return remoteGatewayAction(action, profile);
+    },
+  );
+  ipcMain.handle(
+    "gateway-command-pending",
+    async (_event, profile?: string) => {
+      return getConnectionConfig().mode === "remote"
+        ? remoteGatewayCommandPending(profile)
+        : false;
+    },
+  );
   ipcMain.handle("start-gateway", async (_event, profile?: string) => {
     const conn = getConnectionConfig();
     if (conn.mode === "ssh" && conn.ssh) {
@@ -2112,8 +2144,8 @@ export function registerIpcHandlers(context: IpcContext): void {
       const result = await remoteStartGateway(profile);
       return {
         success: result.success,
-        running: false,
-        ...(result.error ? { error: result.error } : {}),
+        running: result.success,
+        ...(!result.success ? { error: result.error } : {}),
       };
     }
     return startGatewayDetailed();
@@ -2146,7 +2178,9 @@ export function registerIpcHandlers(context: IpcContext): void {
       return sshGatewayStatus(conn.ssh);
     }
     if (conn.mode === "remote") {
-      return (await remoteRestartGateway(profile)).success;
+      const result = await remoteRestartGateway(profile);
+      if (!result.success) throw new Error(result.error);
+      return true;
     }
     return restartGateway(profile);
   });
