@@ -35,6 +35,7 @@ export default {
   fireworks: "Fireworks",
   cerebras: "Cerebras",
   requesty: "Requesty",
+  api_route: "API Route",
   mistral: "Mistral",
   // Theme
   themeSystem: "システム",
@@ -86,6 +87,8 @@ export default {
   cerebrasApiKey: "Cerebras API キー",
   cerebrasHint: "Cerebras ハードウェアでの超高速推論",
   requestyApiKey: "Requesty API キー",
+  apiRouteApiKey: "API Route API キー",
+  apiRouteHint: "OpenAI 互換のマルチモデルゲートウェイ",
   requestyHint: "OpenAI 互換のマルチモデルゲートウェイ",
   mistralApiKey: "Mistral API キー",
   mistralHint: "Mistral と Codestral モデル",
