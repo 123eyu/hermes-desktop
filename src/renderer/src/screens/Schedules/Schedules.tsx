@@ -8,7 +8,9 @@ import {
   Pause,
   Zap,
   Alert,
+  Clock,
 } from "../../assets/icons";
+import { CronRunHistory } from "./CronRunHistory";
 import { useI18n } from "../../components/useI18n";
 import { OrbLoader } from "../../components/OrbLoader";
 
@@ -51,10 +53,14 @@ interface CronJob {
 type FrequencyType = "minutes" | "hourly" | "daily" | "weekly" | "custom";
 
 interface SchedulesProps {
+  connectionId?: string;
   profile?: string;
 }
 
-function Schedules({ profile }: SchedulesProps): React.JSX.Element {
+function Schedules({
+  profile,
+  connectionId,
+}: SchedulesProps): React.JSX.Element {
   const { t } = useI18n();
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +68,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [historyJob, setHistoryJob] = useState<string | null>(null);
 
   // Create form state
   const [newName, setNewName] = useState("");
@@ -77,10 +84,13 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
   const [weeklyTime, setWeeklyTime] = useState("09:00");
   const [customCron, setCustomCron] = useState("");
 
+  const [historyRefresh, setHistoryRefresh] = useState(0);
+
   const loadJobs = useCallback(async (): Promise<void> => {
     try {
       const list = await window.hermesAPI.listCronJobs(true, profile);
       setJobs(list);
+      setHistoryRefresh((n) => n + 1);
     } catch {
       setError(t("schedules.loadFailed"));
     } finally {
@@ -601,6 +611,17 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
                     </button>
                   )}
                   <button
+                    className="btn-ghost schedules-action-btn"
+                    data-tooltip={t("schedules.history")}
+                    aria-label={t("schedules.history")}
+                    aria-expanded={historyJob === job.id}
+                    onClick={() =>
+                      setHistoryJob(historyJob === job.id ? null : job.id)
+                    }
+                  >
+                    <Clock size={14} />
+                  </button>
+                  <button
                     className="btn-ghost schedules-action-btn schedules-action-danger"
                     data-tooltip={t("schedules.delete")}
                     onClick={() => setConfirmDelete(job.id)}
@@ -650,6 +671,15 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
 
               {job.last_error && (
                 <div className="schedules-card-error">{job.last_error}</div>
+              )}
+
+              {historyJob === job.id && (
+                <CronRunHistory
+                  jobId={job.id}
+                  connectionId={connectionId}
+                  profile={profile}
+                  refreshKey={historyRefresh}
+                />
               )}
             </div>
           ))}

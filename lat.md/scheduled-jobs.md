@@ -10,7 +10,19 @@ Direct remote schedules use the shared OAuth or token boundary and the selected 
 
 [[src/main/cronjobs.ts#listCronJobs]] and mutations prefer dashboard cron routes. Explicit default-profile queries avoid the dashboard's all-profile list default. Only unsupported routes or an unconfigured keyless token transport permit a legacy fetch.
 
+[[src/main/dashboard-api-url.ts#dashboardApiUrl]] is the shared, runtime-independent URL builder. Schedule adapters use it without initializing session storage or locale configuration; the session bridge keeps its existing export for callers.
+
 Token dashboard connection tests use public status only for discovery, then verify a protected session-list route with the candidate session-token header. Raw gateway health is public too, so gateway tests verify protected model access with the candidate Bearer token. Existing OAuth discovery remains separate from native sign-in.
+
+## Run history
+
+An expanded job shows its newest runs and bounded plain-text output, owned by the selected connection and profile.
+
+[[src/main/cronjobs.ts#listCronRuns]] and [[src/main/cronjobs.ts#getCronRunOutput]] resolve the existing main-issued editor target before reading and after deferred replies. Private settings and OAuth account changes revoke it. Dashboard reads include an explicit default or named profile, support resolved anonymous token dashboards and Basic proxies, and never fall back from OAuth failure to bare fetch.
+
+Remote output requires membership in the job's newest 100-run window before reading session messages. A 500-message page is marked partial; hidden display messages are omitted. The current Agent exposes cron sessions, not script-file output. Servers returning script-preview rows expose only a preview, always marked partial. Local history reads newest regular files without following file symlinks, with bounded previews and a 200,000-character output cap. SSH history is explicitly unsupported.
+
+[[src/renderer/src/screens/Schedules/CronRunHistory.tsx#CronRunHistory]] cancels obsolete reads on configuration, profile, connection and open-run changes. Refresh reloads both the expanded list and open output. The Layout Schedules key follows connection, profile and semantic settings identity; display-label notifications preserve its pane.
 
 ## Test specifications
 
@@ -61,3 +73,51 @@ A public dashboard status response cannot validate a candidate token; connection
 ### Gateway token validation
 
 A gateway public health response cannot validate a token; connection tests require protected model access with the candidate Bearer token before declaring the gateway connection successful.
+
+### History profile and authentication
+
+Default and named history reads use dashboard profile queries and the selected authenticated transport. Resolved anonymous token dashboards normalize URLs and Basic credentials, while OAuth failures and malformed successful responses remain failures.
+
+### History target authority
+
+Stale queued targets, changed credentials, deferred authentication probes, old-server replies and OAuth account changes cannot read or display history under a newer target.
+
+### History output ownership and limits
+
+Output requires membership in the requested job's history, rejects invalid response shapes, respects projected display messages and marks a full bounded message page as partial.
+
+### Local history bounds
+
+Only the newest bounded page of regular local output files is previewed. Full output reads are capped, traversal and file symlinks are refused, and invalid limits cannot request the entire archive.
+
+### Open output refresh
+
+Refreshing jobs reloads an already-open run's output, so a completed run cannot keep showing text from its earlier active state.
+
+### History view lifetime
+
+Late list and output replies cannot overwrite a changed connection, profile, configuration or opened run. A refreshed missing run closes its output and real errors remain visible.
+
+### Schedules parent target changes
+
+The actual Layout preserves the Schedules pane on display-label notifications and replaces it on a connection or private settings change, so old job labels and drafts cannot be reused for a new target.
+
+### Dashboard URL normalization
+
+The shared builder removes legacy API suffixes and saved query or fragment data, retains proxy credentials and ports, and rejects missing or invalid URLs without loading desktop configuration.
+
+### Dashboard URL profile routing
+
+Named profiles are query-scoped without replacing explicit profile choices or other request parameters; default-profile callers retain their existing explicit or omitted query behavior.
+
+### History automatic proxy authentication
+
+Actual discovery and cron requests pass a Basic proxy together for anonymous and token dashboards, preserve default and named profile queries, and keep dashboard tokens out of public discovery.
+
+### History proxy authentication refusal
+
+Proxy 401 or 403 replies stop before history access; auto-selected OAuth failures stay on cookie transport without retrying an anonymous cron request.
+
+### History deferred proxy target
+
+Private settings changed while a real proxy discovery reply is pending revoke the captured history target before any cron request can be admitted.

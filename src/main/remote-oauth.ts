@@ -124,6 +124,14 @@ export async function probeRemoteAuthMode(
 ): Promise<{ authMode: "token" | "oauth"; version: string | null }> {
   const normalized = normalizeRemoteOAuthBaseUrl(baseUrl);
   const statusUrl = new URL("/api/status", normalized.origin).toString();
+  // Public dashboard discovery can still sit behind an authenticated proxy.
+  // Fetch cannot use URL userinfo, so keep it only in the proxy auth header.
+  const proxyHeaders =
+    normalized.username || normalized.password
+      ? {
+          Authorization: `Basic ${Buffer.from(`${decodeURIComponent(normalized.username)}:${decodeURIComponent(normalized.password)}`).toString("base64")}`,
+        }
+      : undefined;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8_000);
   timer.unref?.();
@@ -131,15 +139,18 @@ export async function probeRemoteAuthMode(
     const response = await fetchImpl(statusUrl, {
       method: "GET",
       signal: controller.signal,
+      headers: proxyHeaders,
     });
     if (response.status === 404 || response.status === 405) {
       const healthUrl = new URL("/health", normalized.origin).toString();
       const health = await fetchImpl(healthUrl, {
         method: "GET",
         signal: controller.signal,
-        headers: apiKey.trim()
-          ? { Authorization: `Bearer ${apiKey.trim()}` }
-          : undefined,
+        headers:
+          proxyHeaders ??
+          (apiKey.trim()
+            ? { Authorization: `Bearer ${apiKey.trim()}` }
+            : undefined),
       });
       // A protected health endpoint still proves this is a raw token gateway;
       // the subsequent connection test reports whether the supplied key works.

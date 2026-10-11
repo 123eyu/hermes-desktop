@@ -75,6 +75,34 @@ describe("remote authentication mode detection", () => {
     ).resolves.toEqual({ authMode: "token", version: null });
   });
 
+  // @lat: [[remote-dashboard-oauth#Test specifications#Reverse proxy discovery]]
+  it("retains encoded Basic proxy credentials for public status and raw health discovery", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("missing", { status: 404 }))
+      .mockResolvedValueOnce(new Response("healthy", { status: 200 }));
+    await expect(
+      probeRemoteAuthMode(
+        "https://proxy%20user:p%40ss@hermes.example/api?old=1#fragment",
+        fetchImpl,
+        "server-key",
+      ),
+    ).resolves.toEqual({ authMode: "token", version: null });
+    const headers = {
+      Authorization: `Basic ${Buffer.from("proxy user:p@ss").toString("base64")}`,
+    };
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      "https://hermes.example/api/status",
+      expect.objectContaining({ headers }),
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      "https://hermes.example/health",
+      expect.objectContaining({ headers }),
+    );
+  });
+
   it("rejects unreachable or malformed status responses", async () => {
     const rejected = vi.fn(async () => new Response("no", { status: 503 }));
     await expect(

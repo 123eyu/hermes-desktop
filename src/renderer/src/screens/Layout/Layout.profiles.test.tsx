@@ -79,7 +79,27 @@ vi.mock("../Gateway/Gateway", () => ({ default: () => null }));
 vi.mock("../Office/Office", () => ({ default: () => null }));
 vi.mock("../Providers/Providers", () => ({ default: () => null }));
 vi.mock("../Providers/RemoteProviders", () => ({ default: () => null }));
-vi.mock("../Schedules/Schedules", () => ({ default: () => null }));
+vi.mock("../Schedules/Schedules", () => ({
+  default: function Schedules({
+    connectionId,
+    profile,
+  }: {
+    connectionId: string;
+    profile: string;
+  }) {
+    const [draft, setDraft] = useState("");
+    return (
+      <div data-testid="schedule-owner">
+        {connectionId}:{profile}
+        <input
+          aria-label="Schedule draft"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      </div>
+    );
+  },
+}));
 vi.mock("../Kanban/Kanban", () => ({ default: () => null }));
 import Layout from "./Layout";
 function row(
@@ -420,6 +440,48 @@ it.each([
     expect(screen.getByTestId("active-chat")).toHaveTextContent("a:work");
   },
 );
+
+// @lat: [[scheduled-jobs#Test specifications#Schedules parent target changes]]
+it("keeps a Schedules pane for label updates and replaces it for private target changes", async () => {
+  const { scope } = fixture();
+  const { rerender } = render(<Layout connectionId="a" />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "navigation.schedules" }),
+  );
+  await screen.findByTestId("schedule-owner");
+  await waitFor(() =>
+    expect(window.hermesAPI.getProfileEditorTarget).toHaveBeenCalled(),
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: "Schedule draft" }), {
+    target: { value: "current draft" },
+  });
+  await act(async () => {
+    scope.listeners.forEach((listener) => listener());
+  });
+  await waitFor(() =>
+    expect(screen.getByRole("textbox", { name: "Schedule draft" })).toHaveValue(
+      "current draft",
+    ),
+  );
+  await act(async () => {
+    scope.change("a", "remote");
+  });
+  await waitFor(() =>
+    expect(screen.getByRole("textbox", { name: "Schedule draft" })).toHaveValue(
+      "",
+    ),
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: "Schedule draft" }), {
+    target: { value: "a draft" },
+  });
+  rerender(<Layout connectionId="b" />);
+  await waitFor(() =>
+    expect(screen.getByTestId("schedule-owner")).toHaveTextContent("b:default"),
+  );
+  expect(screen.getByRole("textbox", { name: "Schedule draft" })).toHaveValue(
+    "",
+  );
+});
 
 // @lat: [[sidebar-navigation#Profile switch and active chat#Retained run appearance]]
 it("keeps a retained run's empty avatar and tab on its original connection", async () => {
