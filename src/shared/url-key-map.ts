@@ -44,6 +44,11 @@ export function matchesProviderUrl(
 export const URL_KEY_MAP: ReadonlyArray<UrlKeyMapping> = [
   // Strict hosts take precedence over legacy URL-substring mappings.
   {
+    pattern: /^global\.api-route\.com$/i,
+    envKey: "API_ROUTE_API_KEY",
+    matchHostname: true,
+  },
+  {
     pattern: /(?:^|\.)requesty\.ai$/i,
     envKey: "REQUESTY_API_KEY",
     matchHostname: true,
@@ -162,6 +167,7 @@ export const OPENAI_COMPAT_PROVIDERS: ReadonlySet<string> = new Set([
   "atlascloud",
   "novita",
   "requesty",
+  "api_route",
   "cheaperinference",
   "mistral",
 ]);

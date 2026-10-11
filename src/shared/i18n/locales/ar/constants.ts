@@ -42,6 +42,7 @@ export default {
   cerebras: "Cerebras",
   atlascloud: "AtlasCloud",
   requesty: "Requesty",
+  api_route: "API Route",
   mistral: "Mistral",
   // Theme
   themeSystem: "النظام",
@@ -100,6 +101,8 @@ export default {
   atlascloudApiKey: "مفتاح AtlasCloud API",
   atlascloudHint: "نماذج Claude و GPT والمفتوحة عبر AtlasCloud",
   requestyApiKey: "مفتاح Requesty API",
+  apiRouteApiKey: "مفتاح API Route API",
+  apiRouteHint: "بوابة نماذج متعددة متوافقة مع OpenAI",
   requestyHint: "بوابة نماذج متعددة متوافقة مع OpenAI",
   mistralApiKey: "مفتاح Mistral API",
   mistralHint: "نماذج Mistral و Codestral",
