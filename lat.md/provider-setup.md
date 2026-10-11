@@ -327,10 +327,16 @@ API Route configurations stored as custom or auto resolve to their dedicated key
 
 The API Route preset keeps its endpoint, credential field, discovery URL and display identity consistent after a model is saved as custom.
 
-Tests verify the setup preset against both endpoint registries, the compatible runtime provider set, the dedicated settings field and reverse branding on reload.
+Registry tests verify the preset against both endpoint registries, the compatible runtime provider set, the dedicated settings field and reverse branding.
 
 ### Vault credentials reach CLI
 
 API Route CLI fallback forwards the selected profile's resolved key from its vault, profile or process environment using the existing compatible-provider path.
 
 [[src/main/hermes.ts#sendMessageViaCli]] supplies API_ROUTE_API_KEY and the legacy OPENAI_API_KEY slot. Tests verify credential precedence, URL credentials and paths, and a single vault enumeration.
+
+### Rendered setup save and reload
+
+The real Setup form saves API Route credentials and the chosen custom model to its selected profile, then real config readers reopen the files without changing another profile.
+
+An isolated fixture selects the preset and enters a model ID and fake key. Actual config writers persist `custom`, the unchanged model ID, the endpoint and `API_ROUTE_API_KEY`; fresh readers recover them and reverse branding remains API Route.
