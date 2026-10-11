@@ -46,7 +46,8 @@ export default {
   activating: "Activando...",
   activate: "Activar",
   providers: {
-    recall: "Zero-LLM tiered memory with automatic forgetting (SQLite, no API key)",
+    recall:
+      "Zero-LLM tiered memory with automatic forgetting (SQLite, no API key)",
     honcho:
       "Modelado de usuarios nativo para IA entre sesiones con preguntas y respuestas dialécticas y búsqueda semántica",
     hindsight:

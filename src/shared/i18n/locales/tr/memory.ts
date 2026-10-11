@@ -46,7 +46,8 @@ export default {
   activating: "Etkinleştiriliyor...",
   activate: "Etkinleştir",
   providers: {
-    recall: "Zero-LLM tiered memory with automatic forgetting (SQLite, no API key)",
+    recall:
+      "Zero-LLM tiered memory with automatic forgetting (SQLite, no API key)",
     honcho:
       "Yapay zeka odaklı oturumlar arası kullanıcı modelleme, diyalektik soru-cevap ve anlamsal arama",
     hindsight: "Bilgi grafiği ve çoklu strateji getirme ile uzun süreli bellek",

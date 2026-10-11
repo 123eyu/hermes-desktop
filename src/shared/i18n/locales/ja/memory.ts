@@ -44,7 +44,8 @@ export default {
   activating: "有効化中...",
   activate: "有効化",
   providers: {
-    recall: "Zero-LLM tiered memory with automatic forgetting (SQLite, no API key)",
+    recall:
+      "Zero-LLM tiered memory with automatic forgetting (SQLite, no API key)",
     honcho:
       "弁証法的 Q&A と意味検索を備えた AI ネイティブのセッション横断ユーザーモデリング",
     hindsight: "ナレッジグラフと複数戦略の検索を備えた長期メモリ",
