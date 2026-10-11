@@ -56,6 +56,21 @@ describe("expectedEnvKeyForModel — provider-name lookup", () => {
 });
 
 describe("expectedEnvKeyForModel — URL fallback for custom/auto providers", () => {
+  // @lat: [[provider-setup#API Route provider preset#Installer readiness]]
+  it.each([
+    ["https://global.api-route.com/v1", "API_ROUTE_API_KEY"],
+    [
+      "https://openai.com:password@global.api-route.com:443/v1",
+      "API_ROUTE_API_KEY",
+    ],
+    ["https://GLOBAL.API-ROUTE.COM/v1", "API_ROUTE_API_KEY"],
+    ["https://global.api-route.com.attacker.example/v1", null],
+    ["https://global.api-route.com@evil.example/v1", null],
+    ["https://evil.example/global.api-route.com/v1", null],
+  ])("resolves API Route installer credentials for %s", (url, expected) => {
+    expect(expectedEnvKeyForModel("custom", url)).toBe(expected);
+    expect(expectedEnvKeyForModel("auto", url)).toBe(expected);
+  });
   it.each([
     [
       "https://user:pass@api.cheaperinference.com:443/v1",
