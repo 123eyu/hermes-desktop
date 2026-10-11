@@ -1130,3 +1130,51 @@ it.each(["missing dashboard", "unsupported file API"] as const)(
     expect(f.api.sendMessage).toHaveBeenCalledTimes(1);
   },
 );
+
+// @lat: [[sidebar-navigation#Profile switch and active chat#Empty chat profile identity]]
+it("keeps the empty chat avatar on its run profile and updates it with that run", async () => {
+  await fixture();
+  const workAvatar = "data:image/png;base64,d29yaw==";
+  const personalAvatar = "data:image/png;base64,cGVyc29uYWw=";
+  const view = render(
+    <Chat
+      runId="empty-work"
+      connectionId="a"
+      profile="work"
+      agentAppearance={{ avatar: workAvatar, color: "#123456" }}
+    />,
+  );
+  await waitFor(() => {
+    const image = view.container.querySelector(
+      ".chat-empty .profile-avatar-img",
+    );
+    expect(image).toHaveAttribute("alt", "work");
+    expect(image).toHaveAttribute("src", workAvatar);
+  });
+  view.rerender(
+    <Chat
+      runId="empty-personal"
+      connectionId="a"
+      profile="personal"
+      agentAppearance={{ avatar: personalAvatar, color: "#654321" }}
+    />,
+  );
+  await waitFor(() => {
+    const image = view.container.querySelector(
+      ".chat-empty .profile-avatar-img",
+    );
+    expect(image).toHaveAttribute("alt", "personal");
+    expect(image).toHaveAttribute("src", personalAvatar);
+  });
+  view.rerender(
+    <Chat runId="empty-default" connectionId="a" profile="default" />,
+  );
+  await waitFor(() => {
+    expect(
+      view.container.querySelector(".chat-empty .chat-empty-logo"),
+    ).toHaveAttribute("aria-label", "Hermes");
+    expect(
+      view.container.querySelector(".chat-empty .profile-avatar-img"),
+    ).toBeNull();
+  });
+});
