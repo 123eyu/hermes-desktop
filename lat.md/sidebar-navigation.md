@@ -180,7 +180,21 @@ Opening a sidebar session after switching profiles consumes that blank selected-
 
 The profile chip preserves the old app-brand label for an unrenamed default profile: when `listProfiles` returns the fallback `name === id === "default"`, the chip shows `common.appName`; once a custom name is stored, it shows that user-facing name.
 
-The same per-profile appearance also drives the agent avatar inside the transcript. [[src/renderer/src/screens/Layout/Layout.tsx#Layout]] passes `getAppearance(run.profile)` to each [[src/renderer/src/screens/Chat/Chat.tsx]] as `agentAppearance`, which forwards `{ name, color, avatar }` through [[src/renderer/src/screens/Chat/MessageList.tsx]] to every [[src/renderer/src/screens/Chat/MessageRow.tsx#HermesAvatar]] (and the reasoning/tool-activity rows in [[src/renderer/src/screens/Chat/HistoryRow.tsx]]). `HermesAvatar` shows the animated thinking-orb ([[loading-indicators]]) only while a turn is generating (`active`); once generation stops it swaps straight to the agent's [[src/renderer/src/components/common/ProfileAvatar.tsx]] so idle turns are identified by who produced them. The live typing indicator has no resolved agent yet, so it falls back to the orb.
+The same per-profile appearance also drives the agent avatar inside the transcript. [[src/renderer/src/screens/Layout/Layout.tsx#Layout]] passes `getAppearance(run.profile, run.connectionId)` to each [[src/renderer/src/screens/Chat/Chat.tsx]] as `agentAppearance`, which forwards `{ name, color, avatar }` through [[src/renderer/src/screens/Chat/MessageList.tsx]] to every [[src/renderer/src/screens/Chat/MessageRow.tsx#HermesAvatar]] (and the reasoning/tool-activity rows in [[src/renderer/src/screens/Chat/HistoryRow.tsx]]). `HermesAvatar` shows the animated thinking-orb ([[loading-indicators]]) only while a turn is generating (`active`); once generation stops it swaps straight to the agent's [[src/renderer/src/components/common/ProfileAvatar.tsx]] so idle turns are identified by who produced them. The live typing indicator has no resolved agent yet, so it falls back to the orb.
+
+### Empty chat profile identity
+
+The empty chat uses the same run-owned profile appearance as transcript rows, so the selected agent is visible before its first reply.
+
+[[src/renderer/src/screens/Chat/Chat.tsx]] passes its existing `agentAvatar` to [[src/renderer/src/screens/Chat/ChatEmptyState.tsx#ChatEmptyState]]. Named profiles display their colored initial or custom image; an uncustomized default retains the Hermes wordmark. Existing transcript orbs and scoped run routing remain authoritative.
+
+An actual Chat regression switches the visible run's profile appearance and checks the empty-state image follows it, then restores the default wordmark without retaining the previous agent image.
+
+### Retained run appearance
+
+Appearance belongs to a connection and profile together, so retained conversations cannot borrow a same-named agent's avatar from another machine.
+
+The Layout caches admitted profile appearances by connection identity and passes the run's owner to Chat and ActiveSessionsBar. Selecting another machine retains the known appearance of earlier runs; a changed selected configuration clears only that machine's cache. Existing captured-target checks reject old appearance replies. An actual Layout regression navigates A and B with different `work` images and checks both the empty chat and retained tab.
 
 ### SSH tunnel profile routing
 
