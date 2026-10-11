@@ -41,3 +41,7 @@ SSH and direct Remote profiles do not offer a local-machine socket registration 
 ## Actual Local profile configuration
 
 The actual installer reads memory.provider instead of an earlier model provider and discovers flat plugins using the selected named profile home.
+
+## Managed SSH discovery refusal
+
+Executable managed launchers and custom runtime homes refuse directory discovery without executing the launcher or falsely reporting providers from the SSH user's default home.

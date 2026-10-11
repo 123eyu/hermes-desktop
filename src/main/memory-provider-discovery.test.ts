@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  chmodSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -110,7 +111,7 @@ describe("external memory provider directory discovery", () => {
       JSON.parse(
         execFileSync("python3", ["-c", memoryProviderDiscoveryScript()], {
           input: JSON.stringify({ profile, active: "graphnosis" }),
-          env: { ...process.env, HOME: root },
+          env: { ...process.env, HOME: root, HERMES_HOME: "" },
           encoding: "utf8",
         }),
       );
@@ -145,4 +146,29 @@ describe("external memory provider directory discovery", () => {
       readFileSync(join(base, "plugins", "graphnosis", "__init__.py"), "utf8"),
     ).toBe("class Plugin(MemoryProvider): pass");
   });
+  // @lat: [[external-memory-providers-tests#Managed SSH discovery refusal]]
+  it.each(["launcher", "custom-home"])(
+    "refuses unverified %s roots without executing them",
+    (kind) => {
+      const root = home();
+      if (kind === "launcher") {
+        const directory = join(root, ".config", "hermes-desktop");
+        mkdirSync(directory, { recursive: true });
+        const launcher = join(directory, "remote-hermes");
+        writeFileSync(launcher, "#!/bin/sh\nexit 99\n");
+        chmodSync(launcher, 0o700);
+      }
+      expect(() =>
+        execFileSync("python3", ["-c", memoryProviderDiscoveryScript()], {
+          input: JSON.stringify({ profile: "work" }),
+          env: {
+            ...process.env,
+            HOME: root,
+            HERMES_HOME: kind === "custom-home" ? join(root, "managed") : "",
+          },
+          stdio: ["pipe", "pipe", "pipe"],
+        }),
+      ).toThrow(/Memory provider discovery is unavailable/);
+    },
+  );
 });
