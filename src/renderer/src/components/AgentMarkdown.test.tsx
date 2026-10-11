@@ -154,6 +154,9 @@ describe("AgentMarkdown", () => {
           </AgentMarkdown>
         </div>,
       );
+      expect(container.querySelector(".chat-markdown")).not.toHaveAttribute(
+        "dir",
+      );
       const quote = container.querySelector("blockquote")!;
       expect(quote.querySelector("h1")).not.toHaveAttribute("dir");
       expect(quote.querySelector("p")).toHaveAttribute("dir", "auto");

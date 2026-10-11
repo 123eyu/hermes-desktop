@@ -31,7 +31,7 @@ The first prose block inherits its container's direction without a separate `dir
 
 ### Heading first containers
 
-A leading prose heading can supply native direction to its list marker or quotation border. Later headings and paragraphs remain independent; a neutral or numeric first block uses the inherited interface fallback.
+A leading prose heading can supply native direction to its list marker or quotation border. Later headings and paragraphs remain independent; a neutral or numeric first block uses the browser’s native no-strong-character fallback.
 
 ### Footnotes retain link targets
 

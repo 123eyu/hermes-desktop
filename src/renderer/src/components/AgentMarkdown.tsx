@@ -209,7 +209,7 @@ function CodeBlock({
   );
 }
 
-type DirectionParagraphProps = React.ComponentProps<"p"> &
+type DirectionProseProps = React.HTMLAttributes<HTMLElement> &
   ExtraProps & {
     inheritDirection?: boolean;
   };
@@ -290,7 +290,7 @@ const AgentMarkdown = memo(function AgentMarkdown({
   children: string;
 }): React.JSX.Element {
   return (
-    <div className="chat-markdown" dir="auto">
+    <div className="chat-markdown">
       <Markdown
         remarkPlugins={[remarkGfm]}
         components={{
