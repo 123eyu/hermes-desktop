@@ -21,7 +21,7 @@ import {
   useDashboardChatTransport,
 } from "./useDashboardChatTransport";
 import { useTranscriptState } from "./useTranscriptState";
-import type { ActiveTurn, ChatMessage, UsageState } from "../types";
+import type { ActiveTurn, Attachment, ChatMessage, UsageState } from "../types";
 
 type SetUsageMock = Mock<(value: SetStateAction<UsageState | null>) => void>;
 
@@ -70,7 +70,7 @@ interface HarnessApi {
   respondApproval?: ReturnType<
     typeof useDashboardChatTransport
   >["respondApproval"];
-  send?: (text: string) => Promise<boolean>;
+  send?: (text: string, attachments?: Attachment[]) => Promise<boolean>;
   setConnectionMode?: Dispatch<SetStateAction<"local" | "remote" | "ssh">>;
   setMessages?: Dispatch<SetStateAction<ChatMessage[]>>;
   setModel?: Dispatch<SetStateAction<string>>;
@@ -101,6 +101,8 @@ function Harness({
   fallbackOnUnavailable = false,
   initialConnectionMode = "local",
   onDashboardUnavailable,
+  onPetEvent,
+  onPetFailure,
   setUsage = vi.fn() as SetUsageMock,
 }: {
   api: HarnessApi;
@@ -111,6 +113,8 @@ function Harness({
   fallbackOnUnavailable?: boolean;
   initialConnectionMode?: "local" | "remote" | "ssh";
   onDashboardUnavailable?: (reason: string) => void;
+  onPetEvent?: (event: DashboardRpcEvent) => void;
+  onPetFailure?: () => void;
   setUsage?: SetUsageMock;
 }): null {
   // Same write-through transcript state Chat.tsx uses — the transport's
@@ -149,6 +153,8 @@ function Harness({
     setToolProgress: vi.fn(),
     setUsage,
     onDashboardUnavailable,
+    onPetEvent,
+    onPetFailure,
   });
 
   useEffect(() => {
@@ -610,6 +616,7 @@ describe("useDashboardChatTransport recovery", () => {
   it("surfaces OAuth login requirements without legacy fallback", async () => {
     // @lat: [[remote-dashboard-oauth#Test specifications#OAuth no-fallback]]
     const onUnavailable = vi.fn();
+    const onPetFailure = vi.fn();
     Object.defineProperty(window, "hermesAPI", {
       configurable: true,
       value: {
@@ -630,6 +637,7 @@ describe("useDashboardChatTransport recovery", () => {
         initialConnectionMode="remote"
         fallbackOnUnavailable
         onDashboardUnavailable={onUnavailable}
+        onPetFailure={onPetFailure}
       />,
     );
 
@@ -640,6 +648,7 @@ describe("useDashboardChatTransport recovery", () => {
 
     expect(handled).toBe(true);
     expect(onUnavailable).not.toHaveBeenCalled();
+    expect(onPetFailure).toHaveBeenCalledOnce();
   });
 
   afterEach(() => {
@@ -1724,6 +1733,38 @@ describe("useDashboardChatTransport delta coalescing", () => {
     expect(lastAfter?.content).toBe("partial and done");
   });
 
+  it("relays only accepted activity events to the pet, not another session's events", async () => {
+    dashboardMock.request.mockImplementation(async (method) => {
+      if (method === "session.create")
+        return { session_id: "live-1", stored_session_id: "stored-1" };
+      if (method === "model.options")
+        return { model: "bad-model", provider: "bad-provider", providers: [] };
+      return {};
+    });
+    const onPetEvent = vi.fn();
+    const api: HarnessApi = {};
+    render(<Harness api={api} onPetEvent={onPetEvent} />);
+    await act(async () => {
+      await api.send?.("hello");
+    });
+    await act(async () => {
+      dashboardMock.onEvent?.({
+        type: "tool.start",
+        session_id: "other",
+        payload: { name: "terminal" },
+      });
+      dashboardMock.onEvent?.({
+        type: "tool.start",
+        session_id: "live-1",
+        payload: { name: "terminal" },
+      });
+    });
+    expect(onPetEvent).toHaveBeenCalledTimes(1);
+    expect(onPetEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "tool.start", session_id: "live-1" }),
+    );
+  });
+
   it("keeps pending deltas when a functional writer lands mid-frame", async () => {
     const frames: FrameRequestCallback[] = [];
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
@@ -2199,4 +2240,57 @@ it("deduplicates native runtime counters while preserving context, legacy deltas
       snapshots,
     ),
   ).toMatchObject({ promptTokens: 8, completionTokens: 4, totalTokens: 12 });
+});
+
+// @lat: [[shared-pets#Recovery regressions#Invalid payload handoff releases native authority]]
+it("invalid attachment handoff releases native teardown ownership", async () => {
+  const api: HarnessApi = {};
+  Object.defineProperty(window, "hermesAPI", {
+    configurable: true,
+    value: {
+      startDashboard: vi.fn().mockResolvedValue({
+        running: true,
+        connection: { wsUrl: "ws://fixture" },
+      }),
+      freshDashboardWsUrl: vi.fn().mockResolvedValue("ws://fixture"),
+    },
+  });
+  const view = render(
+    <Harness
+      api={api}
+      initialConnectionMode="remote"
+      fallbackOnUnavailable
+      connectionRevision={0}
+    />,
+  );
+  await waitFor(() => expect(api.send).toBeDefined());
+  const originalTurn = api.activeTurnRef!.current;
+  let handled: boolean | undefined;
+  await act(async () => {
+    handled = await api.send!("legacy payload", [
+      {
+        id: "invalid-path",
+        kind: "path-ref",
+        name: "gone.pdf",
+        mime: "application/pdf",
+        size: 10,
+        path: "",
+      },
+    ]);
+  });
+  expect(handled).toBe(false);
+  expect(api.activeTurnRef!.current).toBe(originalTurn);
+  view.rerender(
+    <Harness
+      api={api}
+      initialConnectionMode="remote"
+      fallbackOnUnavailable
+      connectionRevision={1}
+    />,
+  );
+  expect(api.activeTurnRef!.current).toBe(originalTurn);
+  expect(originalTurn!.status).toBe("running");
+  expect(
+    api.messages!.some((message) => "error" in message && !!message.error),
+  ).toBe(false);
 });
