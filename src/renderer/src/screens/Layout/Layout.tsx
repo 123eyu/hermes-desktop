@@ -977,11 +977,13 @@ function Layout({
 
           {visitedViews.has("skills") && (
             <div style={paneStyle("skills")}>
-              {remoteMode ? (
-                <RemoteNotice feature="Skills" />
-              ) : (
-                <Skills profile={activeProfile} />
-              )}
+              {/* Keyed by connection and profile so a target
+                  switch remounts it: its cached list and selection belong to
+                  the previous target, and Uninstall would hit the new one. */}
+              <Skills
+                key={JSON.stringify([connectionId, activeProfile])}
+                profile={activeProfile}
+              />
             </div>
           )}
 
