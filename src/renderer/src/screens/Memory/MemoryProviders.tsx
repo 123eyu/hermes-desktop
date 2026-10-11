@@ -17,6 +17,7 @@ function escapeHtml(value: string): string {
 
 const PROVIDER_URLS: Record<string, string> = {
   recall: "https://github.com/Jnocode/recall-memory-hermes",
+  "recall-memory-hermes": "https://github.com/Jnocode/recall-memory-hermes",
   honcho: "https://app.honcho.dev",
   hindsight: "https://ui.hindsight.vectorize.io",
   mem0: "https://app.mem0.ai",
@@ -192,7 +193,7 @@ export function MemoryProviders({
                     </span>
                   )}
                 </div>
-                {PROVIDER_URLS[p.name] && (
+                {Object.hasOwn(PROVIDER_URLS, p.name) && (
                   <button
                     className="btn-ghost"
                     style={{ padding: 2, opacity: 0.6 }}

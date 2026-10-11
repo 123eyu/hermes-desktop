@@ -45,3 +45,23 @@ The actual installer reads memory.provider instead of an earlier model provider 
 ## Managed SSH discovery refusal
 
 Executable managed launchers and custom runtime homes refuse directory discovery without executing the launcher or falsely reporting providers from the SSH user's default home.
+
+## Recall Local and SSH identities
+
+Legacy and current Recall plugin directory names receive localized metadata in Local and generated SSH discovery, with the current named profile active and no API-key fields.
+
+## Recall actual installer configuration
+
+The actual Local installer reads the hyphenated current provider identity from the memory section, includes a separate legacy install and never borrows default-home plugin files.
+
+## Recall renderer links and routing
+
+The actual provider cards use fixed official HTTPS links for both names, expose no API-key fields and pass the captured profile target on activation. Inherited object keys cannot become provider URLs.
+
+## Remote memory provider authority
+
+Remote discovery uses only the selected server's schema and active configuration; unsupported Desktop metadata never creates a provider option or configuration write.
+
+## Recall bundled metadata
+
+A legacy bundled Recall plugin receives its localized description rather than a raw untranslated provider name, covering the original discovery-review gap.

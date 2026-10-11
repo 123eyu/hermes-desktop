@@ -27,6 +27,27 @@ import {
   remoteWriteSoul,
 } from "./remote-memory";
 
+// @lat: [[external-memory-providers-tests#Remote memory provider authority]]
+it("does not invent external providers absent from the selected Remote schema or active config", async () => {
+  request.mockReset();
+  request.mockImplementation(async (_connection: unknown, path: string) => {
+    if (path.startsWith("/api/config/raw"))
+      return {
+        yaml: "memory:\n  provider: honcho\n",
+        path: "/managed/work/config.yaml",
+      };
+    return { fields: { "memory.provider": { options: ["honcho"] } } };
+  });
+  expect(
+    (await remoteDiscoverMemoryProviders("work")).map(
+      (provider) => provider.name,
+    ),
+  ).toEqual(["honcho"]);
+  expect(
+    request.mock.calls.every((call) => call[1].includes("profile=work")),
+  ).toBe(true);
+});
+
 function files(map: Record<string, string | null>): void {
   request.mockImplementation(async (_conn: unknown, path: string) => {
     if (path.startsWith("/api/config/raw"))

@@ -37,6 +37,48 @@ afterEach(() => {
 });
 
 describe("external memory provider directory discovery", () => {
+  // @lat: [[external-memory-providers-tests#Recall Local and SSH identities]]
+  it("recognizes both Recall names on Local and the actual named-profile SSH script", () => {
+    const root = home();
+    const profile = join(root, ".hermes", "profiles", "work");
+    for (const name of ["recall", "recall-memory-hermes"])
+      plugin(join(profile, "plugins"), name);
+    const expected = [
+      {
+        name: "recall-memory-hermes",
+        description: "memory.providers.recall",
+        envVars: [],
+        installed: true,
+        active: true,
+      },
+      {
+        name: "recall",
+        description: "memory.providers.recall",
+        envVars: [],
+        installed: true,
+        active: false,
+      },
+    ];
+    expect(
+      discoverMemoryProviderDirectories(
+        join(root, "missing"),
+        profile,
+        "recall-memory-hermes",
+      ),
+    ).toEqual(expected);
+    expect(
+      JSON.parse(
+        execFileSync("python3", ["-c", memoryProviderDiscoveryScript()], {
+          input: JSON.stringify({
+            profile: "work",
+            active: "recall-memory-hermes",
+          }),
+          env: { ...process.env, HOME: root, HERMES_HOME: "" },
+          encoding: "utf8",
+        }),
+      ),
+    ).toEqual(expected);
+  });
   // @lat: [[external-memory-providers-tests#Local user plugin discovery]]
   it("finds a flat Graphnosis install without a bundled repo and never executes source", () => {
     const root = home();

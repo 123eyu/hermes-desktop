@@ -42,4 +42,12 @@ export const MEMORY_PROVIDER_METADATA: Record<
     description: "memory.providers.graphnosis",
     envVars: [],
   },
+  recall: {
+    description: "memory.providers.recall",
+    envVars: [],
+  },
+  "recall-memory-hermes": {
+    description: "memory.providers.recall",
+    envVars: [],
+  },
 };
