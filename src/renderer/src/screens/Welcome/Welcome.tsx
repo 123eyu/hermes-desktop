@@ -414,6 +414,27 @@ function Welcome({
         <p className="onboard-note">{t("welcome.installSizeHint")}</p>
       </div>
 
+      <div className="onboard-divider">
+        <span>{t("welcome.dividerOr")}</span>
+      </div>
+
+      <div className="onboard-connect-row">
+        <button
+          className="onboard-btn onboard-btn-glass"
+          onClick={() => setPanel("ssh")}
+        >
+          <KeyRound size={16} />
+          <span>{t("settings.connectSsh")}</span>
+        </button>
+        <button
+          className="onboard-btn onboard-btn-glass"
+          onClick={() => setPanel("remote")}
+        >
+          <Globe size={16} />
+          <span>{t("welcome.connectRemote")}</span>
+        </button>
+      </div>
+
       <div className="onboard-graphnosis">
         <div>
           <div className="onboard-graphnosis-title">
@@ -433,27 +454,6 @@ function Welcome({
           }
         >
           <span>{t("welcome.graphnosisDownload")}</span>
-        </button>
-      </div>
-
-      <div className="onboard-divider">
-        <span>{t("welcome.dividerOr")}</span>
-      </div>
-
-      <div className="onboard-connect-row">
-        <button
-          className="onboard-btn onboard-btn-glass"
-          onClick={() => setPanel("ssh")}
-        >
-          <KeyRound size={16} />
-          <span>{t("settings.connectSsh")}</span>
-        </button>
-        <button
-          className="onboard-btn onboard-btn-glass"
-          onClick={() => setPanel("remote")}
-        >
-          <Globe size={16} />
-          <span>{t("welcome.connectRemote")}</span>
         </button>
       </div>
     </OnboardHero>

@@ -809,7 +809,10 @@ body:has(.shell-vibrant),
   --code-bg: #10131d;
   --selection: rgba(120, 150, 255, 0.5);
   position: relative;
-  overflow: hidden;
+  min-height: 0;
+  justify-content: flex-start;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--bg-primary);
   color: var(--text-primary);
   -webkit-user-select: none;
@@ -894,6 +897,7 @@ body:has(.shell-vibrant),
   flex-direction: column;
   align-items: center;
   max-width: 640px;
+  flex-shrink: 0;
   margin: auto;
   text-align: center;
 }

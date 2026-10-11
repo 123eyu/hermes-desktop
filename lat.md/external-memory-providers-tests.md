@@ -74,3 +74,23 @@ Remote discovery uses only the selected server's schema and active configuration
 ## Recall bundled metadata
 
 A legacy bundled Recall plugin receives its localized description rather than a raw untranslated provider name, covering the original discovery-review gap.
+
+## Provider-only discovery failure
+
+An SSH discovery failure leaves successful memory, user text and Soul usable under the captured target while the Providers tab exposes its unavailable capability without stale activation controls.
+
+## Provider discovery retry
+
+A failed refresh clears the old provider list while memory stays usable. A subsequent refresh recovers discovery without losing the snapshot or suppressing target checks.
+
+## Delayed provider failure scope
+
+A deferred discovery rejection from an old profile cannot replace the current profile's provider list or disable its controls.
+
+## Welcome setup before optional integration
+
+The actual Welcome component offers setup and connection actions before the optional download card, routes SSH and Remote panels, and opens only the fixed Graphnosis destination.
+
+## Required configuration read failure
+
+A required profile configuration read failure still blocks memory edits even when discovery succeeds; only discovery capability errors are isolated to the Providers tab.
