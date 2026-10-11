@@ -405,6 +405,8 @@ import {
   sshGetModelConfig,
   sshSetModelConfig,
   sshListSessions,
+  sshDeleteSession,
+  sshDeleteSessions,
   sshGetSessionMessages,
   sshSearchSessions,
   sshListProfiles,
@@ -2555,7 +2557,7 @@ export function registerIpcHandlers(context: IpcContext): void {
         return withSshDashboardSessions(
           conn,
           (config) => remoteDeleteSession(config, sessionId),
-          undefined,
+          () => sshDeleteSession(conn.ssh!, sessionId, scopedProfile),
           scopedProfile,
         );
       return deleteSession(sessionId, scopedProfile);
@@ -2577,7 +2579,7 @@ export function registerIpcHandlers(context: IpcContext): void {
         return withSshDashboardSessions(
           conn,
           (config) => remoteDeleteSessions(config, ids),
-          undefined,
+          () => sshDeleteSessions(conn.ssh!, ids, scopedProfile),
           scopedProfile,
         );
       return deleteSessions(ids, scopedProfile);

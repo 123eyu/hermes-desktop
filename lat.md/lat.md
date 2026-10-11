@@ -37,6 +37,7 @@ This directory defines the high-level concepts, business logic, and architecture
 - [[scheduled-jobs]] — schedule state normalization across local files, remote API responses, and named SSH profiles.
 - [[config-health-navigation]] — Configuration details navigation, profile isolation, and audit/fix recovery tests.
 
+- [[ssh-session-delete]] — Native SSH session deletion, transaction integrity and UI recovery tests.
 - [[dashboard-clarify]] — Interactive WebSocket clarification cards and answer delivery tests.
 
 - [[dashboard-shutdown]] — Local dashboard ownership and profile-independent app shutdown.
