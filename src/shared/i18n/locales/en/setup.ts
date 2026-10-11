@@ -25,6 +25,7 @@ export default {
     atlascloud: "AtlasCloud",
     novita: "NovitaAI",
     requesty: "Requesty",
+    api_route: "API Route",
     cheaperinference: "Cheaper Inference",
     mistral: "Mistral",
     aimlapi: "AIML API",

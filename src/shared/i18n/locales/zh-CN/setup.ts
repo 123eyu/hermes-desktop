@@ -23,6 +23,7 @@ export default {
     fireworks: "Fireworks",
     cerebras: "Cerebras",
     requesty: "Requesty",
+    api_route: "API Route",
     mistral: "Mistral",
   },
   serverPreset: "服务器预设",

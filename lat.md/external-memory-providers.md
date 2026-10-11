@@ -24,6 +24,14 @@ The main process validates [[profile-editors#Profile editors#Captured request ta
 
 Graphnosis download links use fixed HTTPS destinations. Onboarding explains the external plugin prerequisite without installing it or changing `memory.provider`.
 
+## Captured MCP YAML safety
+
+The optional registration validates one YAML mapping before and after insertion, preserves existing server blocks and document marker trailers, and refuses unsupported layouts without changing any file.
+
+[[src/main/yaml-document.ts#splitSingleYamlDocument]] bounds the mapping separately from explicit document markers. The existing production `js-yaml` parser is declared directly for duplicate-key and syntax checks; no parser reserialization changes the original text.
+
+Plain MCP mapping headers are supported, including empty mappings and comments. Flow maps, quoted root keys, anchors on the MCP root, multiple documents and malformed YAML require manual configuration. The legacy manual MCP writer retains its existing behavior.
+
 ## Recall provider names
 
 Recall metadata recognizes legacy `recall` and the current external plugin name `recall-memory-hermes`. Both use a fixed link to the official Hermes plugin repository and require no provider API key.

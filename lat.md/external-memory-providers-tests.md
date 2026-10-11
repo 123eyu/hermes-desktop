@@ -2,6 +2,7 @@
 lat:
   require-code-mention: true
 ---
+
 # External memory provider tests
 
 Disposable files, generated SSH Python and actual renderer lifetimes verify discovery and optional registration without third-party installation or real credentials.
@@ -45,6 +46,14 @@ The actual installer reads memory.provider instead of an earlier model provider 
 ## Managed SSH discovery refusal
 
 Executable managed launchers and custom runtime homes refuse directory discovery without executing the launcher or falsely reporting providers from the SSH user's default home.
+
+## MCP YAML document preservation
+
+Actual captured writes remain parseable with start/end markers, comments, CRLF and absent final newlines. Existing MCP entries and named-profile isolation are preserved without a relay launch.
+
+## MCP unsupported documents refuse unchanged
+
+Multiple documents, content after a terminator, duplicate keys, invalid syntax and unsupported MCP root layouts fail before any disposable profile config can change.
 
 ## Recall Local and SSH identities
 
