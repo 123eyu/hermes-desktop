@@ -20,6 +20,7 @@ import {
 import { ActiveSessionsBar } from "./ActiveSessionsBar";
 import { StatusBar } from "./StatusBar";
 import { useRemoteOnlyMode } from "./useRemoteOnlyMode";
+import type { SessionUsage } from "./sessionUsage";
 import Sessions from "../Sessions/Sessions";
 import { useProfileEditorTarget } from "../../hooks/useProfileEditorTarget";
 import Agents from "../Agents/Agents";
@@ -145,8 +146,8 @@ function Layout({
     height: 0,
   });
 
-  const currentSessionId =
-    runs.find((r) => r.runId === activeRunId)?.sessionId ?? null;
+  const activeRun = runs.find((r) => r.runId === activeRunId);
+  const currentSessionId = activeRun?.sessionId ?? null;
 
   const loadingSessionIds = useMemo(
     () => deriveLoadingSessionIds(runs),
@@ -273,6 +274,12 @@ function Layout({
   const handleRunTitle = useCallback((runId: string, title: string) => {
     setRuns((prev) => patchRun(prev, runId, { title }));
   }, []);
+  const handleRunUsage = useCallback(
+    (runId: string, usage: SessionUsage | null) => {
+      setRuns((prev) => patchRun(prev, runId, { usage }));
+    },
+    [],
+  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
@@ -369,7 +376,8 @@ function Layout({
       connectionId,
       "default",
     );
-    setRuns(next.runs);
+    // A no-op snapshot must not replace a queued Chat usage/title update.
+    if (next.runs !== runsRef.current) setRuns(next.runs);
     setActiveRunId(next.activeRunId);
   }, [connectionId, profileTarget]);
 
@@ -403,7 +411,8 @@ function Layout({
             connectionId,
             active.id,
           );
-          setRuns(next.runs);
+          // Keep concurrently reported run state when this restore is a no-op.
+          if (next.runs !== runsRef.current) setRuns(next.runs);
           setActiveRunId(next.activeRunId);
         }
       })
@@ -977,6 +986,7 @@ function Layout({
                   onLoadingChange={handleRunLoading}
                   onSessionIdChange={handleRunSessionId}
                   onTitleChange={handleRunTitle}
+                  onUsageChange={handleRunUsage}
                   agentAppearance={getAppearance(run.profile)}
                 />
               </div>
@@ -1120,7 +1130,19 @@ function Layout({
           )}
         </main>
       </div>
-      <StatusBar activeProfile={activeProfile} />
+      <StatusBar
+        connectionId={
+          view === "chat"
+            ? (activeRun?.connectionId ?? connectionId)
+            : connectionId
+        }
+        activeProfile={
+          view === "chat"
+            ? (activeRun?.profile ?? activeProfile)
+            : activeProfile
+        }
+        sessionUsage={view === "chat" ? (activeRun?.usage ?? null) : null}
+      />
     </div>
   );
 }
