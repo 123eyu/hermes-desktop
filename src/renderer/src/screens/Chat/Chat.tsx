@@ -1333,7 +1333,10 @@ function Chat({
       <div className="chat-body">
         <div className="chat-messages" ref={containerRef}>
           {messages.length === 0 ? (
-            <ChatEmptyState onSelectSuggestion={handleSuggestion} />
+            <ChatEmptyState
+              onSelectSuggestion={handleSuggestion}
+              agent={agentAvatar}
+            />
           ) : (
             <MessageList
               messages={messages}

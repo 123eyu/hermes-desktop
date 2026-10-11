@@ -8,6 +8,7 @@ import {
 import { beforeEach, expect, it, vi } from "vitest";
 import { profileEditorFixture } from "../../test/profileEditorFixture";
 import { useState } from "react";
+import { ChatEmptyState } from "../Chat/ChatEmptyState";
 vi.mock("../../components/useI18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
@@ -24,27 +25,35 @@ vi.mock("../Chat/Chat", () => ({
     active,
     runId,
     initialSessionId,
+    agentAppearance,
   }: {
     profile: string;
     connectionId: string;
     active: boolean;
     runId: string;
     initialSessionId?: string;
+    agentAppearance?: { color?: string | null; avatar?: string | null };
   }) {
     const [draft, setDraft] = useState("");
     return active ? (
-      <div
-        data-testid="active-chat"
-        data-run-id={runId}
-        data-session-id={initialSessionId}
-      >
-        {connectionId}:{profile}
-        <textarea
-          aria-label="Conversation draft"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+      <>
+        <div
+          data-testid="active-chat"
+          data-run-id={runId}
+          data-session-id={initialSessionId}
+        >
+          {connectionId}:{profile}
+          <textarea
+            aria-label="Conversation draft"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+        </div>
+        <ChatEmptyState
+          agent={{ name: profile, ...agentAppearance }}
+          onSelectSuggestion={() => {}}
         />
-      </div>
+      </>
     ) : null;
   },
 }));
@@ -53,7 +62,7 @@ vi.mock("./StatusBar", () => ({
     <div data-testid="selected-profile">{activeProfile}</div>
   ),
 }));
-vi.mock("./ActiveSessionsBar", () => ({ ActiveSessionsBar: () => null }));
+vi.mock("./ActiveSessionsBar", async (importOriginal) => importOriginal());
 vi.mock("./SidebarRecentSessions", () => ({
   default: ({ onSelect }: { onSelect: (id: string) => void }) => (
     <button onClick={() => onSelect("existing-conversation")}>
@@ -125,6 +134,7 @@ function fixture(): {
   api: Record<string, ReturnType<typeof vi.fn>>;
 } {
   const scope = profileEditorFixture("remote");
+  scope.change("a", "remote");
   const api = {
     ...scope.api,
     listProfiles: vi
@@ -470,5 +480,61 @@ it("keeps a Schedules pane for label updates and replaces it for private target 
   );
   expect(screen.getByRole("textbox", { name: "Schedule draft" })).toHaveValue(
     "",
+  );
+});
+
+// @lat: [[sidebar-navigation#Profile switch and active chat#Retained run appearance]]
+it("keeps a retained run's empty avatar and tab on its original connection", async () => {
+  const { scope, api } = fixture();
+  const avatarA = "data:image/png;base64,YQ==";
+  const avatarB = "data:image/png;base64,Yg==";
+  api.listProfiles.mockImplementation(async (target) => [
+    row("default", true),
+    {
+      ...row("work"),
+      avatar: target?.connectionId === "b" ? avatarB : avatarA,
+    },
+  ]);
+  const view = render(<Layout connectionId="a" />);
+  await openAgents();
+  fireEvent.click(document.querySelectorAll(".agents-row")[1]);
+  await showSelectedChat();
+  await waitFor(() =>
+    expect(document.querySelector(".chat-empty img")).toHaveAttribute(
+      "src",
+      avatarA,
+    ),
+  );
+  await act(async () => {
+    scope.change("b", "remote");
+    view.rerender(<Layout connectionId="b" />);
+  });
+  await waitFor(() =>
+    expect(api.listProfiles).toHaveBeenCalledWith(
+      expect.objectContaining({ connectionId: "b" }),
+    ),
+  );
+  const tabs = screen.getAllByRole("tab");
+  const workTab = tabs.find((tab) =>
+    tab.getAttribute("title")?.startsWith("work —"),
+  );
+  expect(workTab?.querySelector("img")).toHaveAttribute("src", avatarA);
+  fireEvent.click(workTab!);
+  await waitFor(() =>
+    expect(screen.getByTestId("active-chat")).toHaveTextContent("a:work"),
+  );
+  expect(document.querySelector(".chat-empty img")).toHaveAttribute(
+    "src",
+    avatarA,
+  );
+  await openAgents();
+  fireEvent.click(document.querySelectorAll(".agents-row")[1]);
+  await showSelectedChat();
+  await waitFor(() =>
+    expect(screen.getByTestId("active-chat")).toHaveTextContent("b:work"),
+  );
+  expect(document.querySelector(".chat-empty img")).toHaveAttribute(
+    "src",
+    avatarB,
   );
 });

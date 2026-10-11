@@ -34,7 +34,7 @@ export const ActiveSessionsBar = memo(function ActiveSessionsBar({
   /** Open a fresh conversation tab (browser-style new-tab button). */
   onNew: () => void;
   /** Resolve a profile's avatar/colour for its chip. */
-  getAppearance?: (profile: string) => ProfileAppearance;
+  getAppearance?: (profile: string, connectionId?: string) => ProfileAppearance;
 }): React.JSX.Element {
   const { t } = useI18n();
 
@@ -49,7 +49,7 @@ export const ActiveSessionsBar = memo(function ActiveSessionsBar({
         runs.map((run) => {
           const active = run.runId === activeRunId;
           const label = run.title || t("sessions.newConversation");
-          const appearance = getAppearance?.(run.profile);
+          const appearance = getAppearance?.(run.profile, run.connectionId);
           return (
             <div
               key={run.runId}

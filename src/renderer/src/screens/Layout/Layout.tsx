@@ -261,11 +261,14 @@ function Layout({
     };
   }, [updateSidebarScrollbar]);
 
-  // Per-profile avatar/colour, so the active-sessions bar (which only knows a
-  // run's profile name) can render real avatars. Refreshed when the selected
+  // Appearance is owned by both the machine and profile, so retained runs
+  // cannot borrow a same-named agent's avatar from another connection. Refreshed when the selected
   // profile or the current view changes — e.g. after editing on the Agents page.
   const [profileAppearance, setProfileAppearance] = useState<
-    Record<string, { color?: string | null; avatar?: string | null }>
+    Record<
+      string,
+      Record<string, { color?: string | null; avatar?: string | null }>
+    >
   >({});
   useEffect(() => {
     if (!profileTarget) return;
@@ -278,7 +281,10 @@ function Layout({
         const map: Record<string, { color?: string; avatar?: string | null }> =
           {};
         for (const p of list) map[p.id] = { color: p.color, avatar: p.avatar };
-        setProfileAppearance(map);
+        setProfileAppearance((previous) => ({
+          ...previous,
+          [captured.connectionId]: map,
+        }));
       })
       .catch(() => {
         /* keep last-known appearance */
@@ -288,8 +294,9 @@ function Layout({
     };
   }, [activeProfile, view, profileTarget, isProfileCurrent]);
   const getAppearance = useCallback(
-    (profile: string) => profileAppearance[profile] ?? {},
-    [profileAppearance],
+    (profile: string, ownerConnectionId = connectionId) =>
+      profileAppearance[ownerConnectionId]?.[profile] ?? {},
+    [profileAppearance, connectionId],
   );
 
   // Per-run reporters wired into each <Chat>.
@@ -401,7 +408,12 @@ function Layout({
     restoredProfileScope.current = null;
     profileChoiceRevision.current += 1;
     setActiveProfile("default");
-    setProfileAppearance({});
+    setProfileAppearance((previous) => {
+      if (!previous[connectionId]) return previous;
+      const next = { ...previous };
+      delete next[connectionId];
+      return next;
+    });
     // The fallback shell and visible chat must describe the same target even
     // when the subsequent profile restore fails.
     const next = selectProfileRunTransition(
@@ -1029,7 +1041,7 @@ function Layout({
                   onSessionIdChange={handleRunSessionId}
                   onTitleChange={handleRunTitle}
                   onUsageChange={handleRunUsage}
-                  agentAppearance={getAppearance(run.profile)}
+                  agentAppearance={getAppearance(run.profile, run.connectionId)}
                 />
               </div>
             ))}
