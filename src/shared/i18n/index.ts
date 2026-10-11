@@ -12,6 +12,8 @@ import {
 } from "./config";
 import type { AppLocale } from "./types";
 import commonEn from "./locales/en/common";
+import commonFa from "./locales/fa/common";
+import navigationFa from "./locales/fa/navigation";
 import navigationEn from "./locales/en/navigation";
 import discoverEn from "./locales/en/discover";
 import welcomeEn from "./locales/en/welcome";
@@ -272,6 +274,12 @@ import kanbanAr from "./locales/ar/kanban";
 import diagnoseAr from "./locales/ar/diagnose";
 
 export const resources = {
+  fa: {
+    translation: {
+      common: commonFa,
+      navigation: navigationFa,
+    },
+  },
   en: {
     translation: {
       botGroups: botGroupsEn,

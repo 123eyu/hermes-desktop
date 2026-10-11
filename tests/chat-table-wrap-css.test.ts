@@ -21,3 +21,13 @@ describe("Agent markdown table cell wrapping", () => {
     );
   });
 });
+
+describe("Mixed-direction Markdown list markers", () => {
+  // @lat: [[rtl-chat#Bidirectional message rendering#Opposite-direction list marker spacing]]
+  it("reserves logical marker space only when an item differs from its list", () => {
+    expect(CSS).toMatch(
+      /\.chat-markdown :is\(ul, ol\):dir\(ltr\) > li:dir\(rtl\),\s*\.chat-markdown :is\(ul, ol\):dir\(rtl\) > li:dir\(ltr\)\s*\{\s*margin-inline-start: 1\.5em !important;/,
+    );
+    expect(CSS).toContain("margin-inline-start: 16px !important");
+  });
+});

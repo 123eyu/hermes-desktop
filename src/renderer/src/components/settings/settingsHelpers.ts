@@ -25,6 +25,7 @@ export const LANGUAGE_NATIVE_NAMES: Record<AppLocale, string> = {
   en: "English",
   ar: "العربية",
   es: "Español",
+  fa: "فارسی",
   he: "עברית",
   id: "Bahasa Indonesia",
   ja: "日本語",
