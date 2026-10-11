@@ -15,7 +15,7 @@ import { HIDDEN_SUBPROCESS_OPTIONS } from "./process-options";
 import { sshRunCron } from "./ssh-remote";
 import { remoteDashboardRequestJson } from "./remote-api";
 import { RemoteOAuthError, probeRemoteAuthMode } from "./remote-oauth";
-import { dashboardApiUrl } from "./remote-sessions";
+import { dashboardApiUrl } from "./dashboard-api-url";
 import { providerTargetRevision } from "./provider-request-target";
 import { resolveProfileEditorTarget } from "./profile-editor-target";
 import type { ProfileEditorTarget } from "../shared/profile-editor-target";

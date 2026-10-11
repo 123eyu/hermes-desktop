@@ -10,6 +10,8 @@ Direct remote schedules use the shared OAuth or token boundary and the selected 
 
 [[src/main/cronjobs.ts#listCronJobs]] and mutations prefer dashboard cron routes. Explicit default-profile queries avoid the dashboard's all-profile list default. Only unsupported routes or an unconfigured keyless token transport permit a legacy fetch.
 
+[[src/main/dashboard-api-url.ts#dashboardApiUrl]] is the shared, runtime-independent URL builder. Schedule adapters use it without initializing session storage or locale configuration; the session bridge keeps its existing export for callers.
+
 Token dashboard connection tests use public status only for discovery, then verify a protected session-list route with the candidate session-token header. Raw gateway health is public too, so gateway tests verify protected model access with the candidate Bearer token. Existing OAuth discovery remains separate from native sign-in.
 
 ## Run history
@@ -99,3 +101,11 @@ Late list and output replies cannot overwrite a changed connection, profile, con
 ### Schedules parent target changes
 
 The actual Layout preserves the Schedules pane on display-label notifications and replaces it on a connection or private settings change, so old job labels and drafts cannot be reused for a new target.
+
+### Dashboard URL normalization
+
+The shared builder removes legacy API suffixes and saved query or fragment data, retains proxy credentials and ports, and rejects missing or invalid URLs without loading desktop configuration.
+
+### Dashboard URL profile routing
+
+Named profiles are query-scoped without replacing explicit profile choices or other request parameters; default-profile callers retain their existing explicit or omitted query behavior.
