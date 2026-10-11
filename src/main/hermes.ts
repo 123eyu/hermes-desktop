@@ -2838,7 +2838,10 @@ function sendMessageViaCli(
     let resolvedKey = "";
     if (hostDerivedEnvKey) {
       resolvedKey =
-        profileEnv[hostDerivedEnvKey] || env[hostDerivedEnvKey] || "";
+        profileEnv[hostDerivedEnvKey] ||
+        env[hostDerivedEnvKey] ||
+        providerSecrets[hostDerivedEnvKey] ||
+        "";
     }
     if (!resolvedKey) {
       // Try custom provider auto-generated key from models.json

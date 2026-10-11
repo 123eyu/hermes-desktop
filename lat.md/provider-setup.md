@@ -262,3 +262,23 @@ Resetting to the main model persists `auto` routing without stale task-level cre
 ### YAML field boundaries
 
 Routing updates and credential removal address direct task children only, preserving nested options, comments, empty task maps, and CRLF line endings.
+
+## Requesty provider preset
+
+Requesty is available as a remote OpenAI-compatible preset, with a dedicated API-key field. It is an LLM gateway that serves many vendors behind one key.
+
+The desktop stores the model as `custom` at `https://router.requesty.ai/v1` because Hermes Agent has no native `requesty` provider id. Setup, the configured-provider picker, installer readiness, and runtime key lookup use `REQUESTY_API_KEY`, which matches the key the agent host-derives from `router.requesty.ai`. Model ids use the `vendor/model` form, for example `openai/gpt-4o-mini`. Regional endpoints such as `https://router.eu.requesty.ai/v1` map to the same key.
+
+### Credential host boundary
+
+Requesty key lookup matches the parsed HTTP(S) hostname, including regional subdomains. URL credentials, ports and paths never identify the provider, so unrelated hosts cannot select its saved key by embedding the provider name in userinfo.
+
+Strict hostname entries precede legacy URL-substring mappings, so credentials or paths naming another vendor cannot shadow the Requesty host.
+
+[[src/shared/url-key-map.ts#matchesProviderUrl]] applies this boundary to shared lookup, runtime environment hydration and installer readiness. Tests retain valid credential-bearing URLs and default ports while rejecting lookalikes and userinfo spoofs.
+
+### Vault credentials reach CLI
+
+Requesty CLI fallback accepts the selected profile's enumerated vault key without writing it to plaintext. Profile-file and process values retain precedence over the vault.
+
+[[src/main/hermes.ts#sendMessageViaCli]] reuses the single secret-provider enumeration for the host-derived key, then supplies both `REQUESTY_API_KEY` and the legacy `OPENAI_API_KEY` to the child. Spawn regressions cover primary and regional endpoints plus credential precedence.
