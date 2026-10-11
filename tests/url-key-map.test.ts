@@ -20,6 +20,31 @@ import { hostDerivedEnvKeyForUrl } from "../src/main/host-derived-env";
  */
 
 describe("URL_KEY_MAP", () => {
+  // @lat: [[provider-setup#API Route provider preset#Credential host boundary]]
+  it.each([
+    ["https://global.api-route.com/v1", true],
+    ["https://GLOBAL.API-ROUTE.COM:443/v1", true],
+    ["global.api-route.com/v1", true],
+    ["https://global.api-route.com.:443/v1", true],
+    ["https://openai.com:password@global.api-route.com/v1", true],
+    ["https://global.api-route.com/v1/api.openai.com", true],
+    ["https://global.api-route.com:443@evil.example/v1", false],
+    ["https://global.api-route.com.attacker.example/v1", false],
+    ["https://evil.example/global.api-route.com/v1", false],
+    ["https://www.api-route.com/v1", false],
+    ["ftp://global.api-route.com/v1", false],
+  ])(
+    "resolves API Route credentials only for its HTTP host %s",
+    (url, known) => {
+      expect(expectedEnvKeyForUrl(url)).toBe(
+        known ? "API_ROUTE_API_KEY" : CUSTOM_API_KEY_ENV,
+      );
+      expect(isKnownProviderUrl(url)).toBe(known);
+      expect(hostDerivedEnvKeyForUrl(url)).toBe(
+        known ? "API_ROUTE_API_KEY" : null,
+      );
+    },
+  );
   // @lat: [[provider-setup#Cheaper Inference provider preset#Credential host boundary]]
   it.each([
     ["https://user:pass@api.cheaperinference.com:443/v1", true],
@@ -88,6 +113,7 @@ describe("URL_KEY_MAP", () => {
       "https://api.atlascloud.ai/v1": "ATLASCLOUD_API_KEY",
       "https://api.novita.ai/openai/v1": "NOVITA_API_KEY",
       "https://router.requesty.ai/v1": "REQUESTY_API_KEY",
+      "https://global.api-route.com/v1": "API_ROUTE_API_KEY",
       "https://router.eu.requesty.ai/v1": "REQUESTY_API_KEY",
       "https://api.cheaperinference.com/v1": "CHEAPERINFERENCE_API_KEY",
     };
