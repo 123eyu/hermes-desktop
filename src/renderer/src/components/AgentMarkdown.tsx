@@ -1,5 +1,12 @@
-import { useState, useEffect, memo } from "react";
-import Markdown from "react-markdown";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useState,
+  useEffect,
+  memo,
+} from "react";
+import Markdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Copy } from "lucide-react";
 import { useI18n } from "./useI18n";
@@ -163,7 +170,7 @@ function CodeBlock({
   );
 
   return (
-    <div className="chat-code-block">
+    <div className="chat-code-block" dir="ltr">
       <div className="chat-code-header">
         <span className="chat-code-lang">
           {/* Keep the fence's declared language even when a box diagram
@@ -202,6 +209,80 @@ function CodeBlock({
   );
 }
 
+type DirectionProseProps = React.HTMLAttributes<HTMLElement> &
+  ExtraProps & {
+    inheritDirection?: boolean;
+  };
+
+function DirectionProse({
+  as: Tag = "p",
+  node: _node,
+  inheritDirection = false,
+  ...props
+}: DirectionProseProps & {
+  as?: "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+}): React.JSX.Element {
+  return <Tag {...props} dir={inheritDirection ? undefined : "auto"} />;
+}
+
+// Native dir=auto ignores descendants with their own dir attribute. Expose
+// the first prose block to its item's/quote's scan, while later blocks
+// still choose independently. Code/media-only paragraphs cannot own a marker.
+function hasProseText(node: NonNullable<ExtraProps["node"]>): boolean {
+  if (
+    node.tagName === "code" ||
+    node.tagName === "pre" ||
+    node.tagName === "img"
+  ) {
+    return false;
+  }
+  return node.children.some((child) =>
+    child.type === "text"
+      ? child.value.trim().length > 0
+      : child.type === "element" && hasProseText(child),
+  );
+}
+
+function exposeFirstProse(children: React.ReactNode): React.ReactNode {
+  let exposed = false;
+  return Children.map(children, (child) => {
+    if (exposed || !isValidElement<DirectionProseProps>(child)) return child;
+    const node = child.props.node;
+    if (!node || !/^(p|h[1-6])$/.test(node.tagName) || !hasProseText(node))
+      return child;
+    exposed = true;
+    return cloneElement(child, { inheritDirection: true });
+  });
+}
+
+// A wrapper alone gives every block the first paragraph's direction. Each
+// prose block must make its own choice; code is intentionally kept LTR.
+const DIRECTION_COMPONENTS: Components = {
+  p: DirectionProse,
+  h1: (props) => <DirectionProse {...props} as="h1" />,
+  h2: (props) => <DirectionProse {...props} as="h2" />,
+  h3: (props) => <DirectionProse {...props} as="h3" />,
+  h4: (props) => <DirectionProse {...props} as="h4" />,
+  h5: (props) => <DirectionProse {...props} as="h5" />,
+  h6: (props) => <DirectionProse {...props} as="h6" />,
+  blockquote: ({ node: _node, children, ...props }) => (
+    <blockquote {...props} dir="auto">
+      {exposeFirstProse(children)}
+    </blockquote>
+  ),
+  ul: ({ node: _node, ...props }) => <ul {...props} dir="auto" />,
+  ol: ({ node: _node, ...props }) => <ol {...props} dir="auto" />,
+  li: ({ node: _node, children, ...props }) => (
+    <li {...props} dir="auto">
+      {exposeFirstProse(children)}
+    </li>
+  ),
+  table: ({ node: _node, ...props }) => <table {...props} dir="auto" />,
+  th: ({ node: _node, ...props }) => <th {...props} dir="auto" />,
+  td: ({ node: _node, ...props }) => <td {...props} dir="auto" />,
+  pre: ({ node: _node, ...props }) => <pre {...props} dir="ltr" />,
+};
+
 // Shared Markdown renderer that opens links externally
 const AgentMarkdown = memo(function AgentMarkdown({
   children,
@@ -209,78 +290,82 @@ const AgentMarkdown = memo(function AgentMarkdown({
   children: string;
 }): React.JSX.Element {
   return (
-    <Markdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        a: ({ href, children }) => (
-          <a
-            href={href}
-            onClick={(e) => {
-              e.preventDefault();
-              if (!href) return;
-              try {
-                const url = new URL(href, "https://placeholder.invalid");
-                if (!["http:", "https:", "mailto:"].includes(url.protocol)) {
+    <div className="chat-markdown">
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          ...DIRECTION_COMPONENTS,
+          a: ({ href, children, node: _node, ...props }) => (
+            <a
+              {...props}
+              href={href}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!href) return;
+                try {
+                  const url = new URL(href, "https://placeholder.invalid");
+                  if (!["http:", "https:", "mailto:"].includes(url.protocol)) {
+                    return;
+                  }
+                  if (url.protocol === "http:" || url.protocol === "https:") {
+                    const event = new CustomEvent("web-preview:navigate", {
+                      detail: href,
+                    });
+                    document.dispatchEvent(event);
+                    return;
+                  }
+                } catch {
                   return;
                 }
-                if (url.protocol === "http:" || url.protocol === "https:") {
-                  const event = new CustomEvent("web-preview:navigate", {
-                    detail: href,
-                  });
-                  document.dispatchEvent(event);
-                  return;
-                }
-              } catch {
-                return;
-              }
-              window.hermesAPI.openExternal(href);
-            }}
-          >
-            {children}
-          </a>
-        ),
-        img: ({ src }) => {
-          if (typeof src !== "string" || src.length === 0) return null;
-          // ![alt](file.pdf) parses as a markdown image but isn't an image —
-          // route those to the download chip instead of letting MediaImage
-          // try to load a non-image MIME and fail. (Follow-up from #303.)
-          const token = describeImageSrc(src);
-          return token.isImage ? (
-            <MediaImage token={token} />
-          ) : (
-            <DownloadChip token={token} />
-          );
-        },
-        code: ({ className, children, node, ...props }) => {
-          const isInline =
-            !className &&
-            typeof children === "string" &&
-            !children.includes("\n");
-          if (isInline) {
-            return (
-              <code className={className} {...props}>
-                {children}
-              </code>
-            );
-          }
-          // Source offset of the opening fence is stable as the block streams,
-          // so it survives react-markdown's streaming remounts (unlike index
-          // keys) and uniquely identifies this block within the message.
-          const start = node?.position?.start;
-          const blockId =
-            start != null
-              ? `${start.offset ?? start.line}:${className ?? ""}`
-              : undefined;
-          return (
-            <CodeBlock className={className} blockId={blockId}>
+                window.hermesAPI.openExternal(href);
+              }}
+            >
               {children}
-            </CodeBlock>
-          );
-        },
-      }}
-    >
-      {children}
-    </Markdown>
+            </a>
+          ),
+          img: ({ src }) => {
+            if (typeof src !== "string" || src.length === 0) return null;
+            // ![alt](file.pdf) parses as a markdown image but isn't an image —
+            // route those to the download chip instead of letting MediaImage
+            // try to load a non-image MIME and fail. (Follow-up from #303.)
+            const token = describeImageSrc(src);
+            return token.isImage ? (
+              <MediaImage token={token} />
+            ) : (
+              <DownloadChip token={token} />
+            );
+          },
+          code: ({ className, children, node, ...props }) => {
+            const isInline =
+              !className &&
+              typeof children === "string" &&
+              !children.includes("\n");
+            if (isInline) {
+              return (
+                <code className={className} {...props} dir="ltr">
+                  {children}
+                </code>
+              );
+            }
+            // Source offset of the opening fence is stable as the block streams,
+            // so it survives react-markdown's streaming remounts (unlike index
+            // keys) and uniquely identifies this block within the message.
+            const start = node?.position?.start;
+            const blockId =
+              start != null
+                ? `${start.offset ?? start.line}:${className ?? ""}`
+                : undefined;
+            return (
+              <CodeBlock className={className} blockId={blockId}>
+                {children}
+              </CodeBlock>
+            );
+          },
+        }}
+      >
+        {children}
+      </Markdown>
+    </div>
   );
 });
 

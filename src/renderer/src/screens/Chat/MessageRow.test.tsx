@@ -50,4 +50,37 @@ describe("MessageRow user Markdown", () => {
     fireEvent.click(screen.getByRole("button", { name: /copy/i }));
     expect(copyToClipboard).toHaveBeenCalledWith(source);
   });
+
+  // @lat: [[rtl-chat#Bidirectional message rendering#User and assistant messages preserve source]]
+  it.each(["user", "agent"] as const)(
+    "renders independently directed %s prose and copies its unmodified source",
+    (role) => {
+      const source =
+        'سلام دنیا\n\nEnglish first: translate "שלום"?\n\n`const x = 1;`';
+      const { container } = render(
+        <I18nProvider>
+          <MessageRow
+            msg={{ id: `${role}-rtl`, role, content: source }}
+            isLast
+            isLoading={false}
+            onApprove={vi.fn()}
+            onDeny={vi.fn()}
+          />
+        </I18nProvider>,
+      );
+      const paragraphs = container.querySelectorAll(".chat-markdown p");
+      expect(paragraphs).toHaveLength(3);
+      expect(paragraphs[0]).toHaveAttribute("dir", "auto");
+      expect(paragraphs[1]).toHaveAttribute("dir", "auto");
+      expect(paragraphs[1]).toHaveTextContent(
+        'English first: translate "שלום"?',
+      );
+      expect(container.querySelector(".chat-markdown code")).toHaveAttribute(
+        "dir",
+        "ltr",
+      );
+      fireEvent.click(screen.getByRole("button", { name: /copy/i }));
+      expect(copyToClipboard).toHaveBeenCalledWith(source);
+    },
+  );
 });

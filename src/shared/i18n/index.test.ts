@@ -1,7 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { t, getLocaleDirection } from "./index";
+import {
+  t,
+  getLocaleDirection,
+  APP_LOCALES,
+  resources,
+  sharedI18n,
+} from "./index";
 
 describe("shared i18n", () => {
+  // @lat: [[rtl-chat#Persian locale#Complete locale registration]]
+  it("registers Persian resources, RTL direction and English fallback with intact interpolation", () => {
+    expect(APP_LOCALES).toContain("fa");
+    expect(getLocaleDirection("fa")).toBe("rtl");
+    expect(resources.fa.translation.common.save).toBe("ذخیره");
+    expect(sharedI18n.hasResourceBundle("fa", "translation")).toBe(true);
+    expect(t("common.save", "fa")).toBe("ذخیره");
+    expect(t("common.updateAvailable", "fa", { version: "1.2.3" })).toContain(
+      "1.2.3",
+    );
+    expect(t("welcome.title", "fa")).toBe(t("welcome.title", "en"));
+  });
+
   it("returns English text by default", () => {
     expect(t("welcome.title")).toBe("Welcome to Hermes One");
   });
