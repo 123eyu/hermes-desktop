@@ -164,6 +164,7 @@ function CameraRig({
  * desktop profile.
  */
 export default function Office3D({
+  active = true,
   agents,
   selectedId,
   onSelectAgent,
@@ -181,6 +182,7 @@ export default function Office3D({
   devMode = false,
   onDevLog,
 }: {
+  active?: boolean;
   agents: OfficeAgent[];
   selectedId: string | null;
   onSelectAgent: (id: string | null) => void;
@@ -423,6 +425,8 @@ export default function Office3D({
 
   return (
     <Canvas
+      // @lat: [[office-rendering#Retained scene state]]
+      frameloop={active ? "always" : "never"}
       shadows="percentage"
       dpr={[1, 2]}
       // near=1 (instead of the 0.1 default) gives the depth buffer ~10× more
