@@ -60,7 +60,7 @@ DEB and RPM packages use Electron Builder's complete default post-install hook s
 
 The builder supplies `resources/apparmor-profile`, validates it against the installed parser, copies compatible policy into `/etc/apparmor.d/hermes-desktop`, and reloads it outside chroots. Disabled AppArmor and unsupported older parsers skip policy installation. Working user namespaces keep `chrome-sandbox` at 0755; other hosts use its SUID mode. The previous custom hook replaced this setup with an unconditional permission change and omitted policy installation.
 
-[[tests/linux-post-install.test.ts]] generates the actual DEB/RPM scripts through the installed builder and executes them with temporary paths and harmless command fixtures. No system policy, package installation, or native Ubuntu launch is exercised; packaged Ubuntu 24.04 acceptance remains necessary.
+[[tests/linux-post-install.test.ts]] generates the actual DEB/RPM scripts through the installed builder and executes them with temporary paths and harmless command fixtures. The POSIX execution suite skips Windows, where `/bin/bash` and shell fixtures are unavailable; cross-platform packaging/schema assertions remain active. No system policy, package installation, or native Ubuntu launch is exercised; packaged Ubuntu 24.04 acceptance remains necessary.
 
 #### Compatible profile installation
 

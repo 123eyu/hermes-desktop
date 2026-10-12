@@ -17,7 +17,7 @@ import FpmTarget from "app-builder-lib/out/targets/FpmTarget";
 import type { Configuration } from "app-builder-lib/out/configuration";
 import type { LinuxPackager } from "app-builder-lib/out/linuxPackager";
 import type { LinuxTargetHelper } from "app-builder-lib/out/targets/LinuxTargetHelper";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 const projectDir = join(import.meta.dirname, "..");
 const config = load(
@@ -142,67 +142,74 @@ async function runHook(
   };
 }
 
-// @lat: [[desktop-updates#Desktop Updates#Stable and beta release channels#Linux package sandbox and AppArmor#Compatible profile installation]]
-it.each(["deb", "rpm"] as const)(
-  "installs and loads the actual generated %s profile",
-  async (name) => {
-    const fixture = await runHook(name);
-    expect(fixture.result.status).toBe(0);
-    expect(existsSync(fixture.installed)).toBe(true);
-    expect(readFileSync(fixture.installed, "utf8")).toBe(fixture.profile);
-    expect(fixture.profile).toContain('"/opt/HermesOne/hermes-desktop"');
-    expect(fixture.commands).toContain(
-      "apparmor_parser\t--skip-kernel-load --debug",
+// The generated hooks and harmless command shims require a POSIX shell.
+// Cross-platform packaging assertions remain in packaging-identity.test.ts.
+describe.skipIf(process.platform === "win32")(
+  "POSIX Linux package hooks",
+  () => {
+    // @lat: [[desktop-updates#Desktop Updates#Stable and beta release channels#Linux package sandbox and AppArmor#Compatible profile installation]]
+    it.each(["deb", "rpm"] as const)(
+      "installs and loads the actual generated %s profile",
+      async (name) => {
+        const fixture = await runHook(name);
+        expect(fixture.result.status).toBe(0);
+        expect(existsSync(fixture.installed)).toBe(true);
+        expect(readFileSync(fixture.installed, "utf8")).toBe(fixture.profile);
+        expect(fixture.profile).toContain('"/opt/HermesOne/hermes-desktop"');
+        expect(fixture.commands).toContain(
+          "apparmor_parser\t--skip-kernel-load --debug",
+        );
+        expect(fixture.commands).toContain(
+          `apparmor_parser\t--replace --write-cache --skip-read-cache ${fixture.installed}`,
+        );
+      },
     );
-    expect(fixture.commands).toContain(
-      `apparmor_parser\t--replace --write-cache --skip-read-cache ${fixture.installed}`,
+
+    // @lat: [[desktop-updates#Desktop Updates#Stable and beta release channels#Linux package sandbox and AppArmor#Unsupported AppArmor]]
+    it.each([{ enabled: false }, { compatible: false }])(
+      "skips unavailable/unsupported AppArmor without loading it ($enabled/$compatible)",
+      async (options) => {
+        const fixture = await runHook("deb", options);
+        expect(fixture.result.status).toBe(0);
+        expect(existsSync(fixture.installed)).toBe(false);
+        expect(fixture.commands).not.toContain("--replace");
+        if (options.compatible === false)
+          expect(fixture.result.stdout).toContain(
+            "Skipping the installation of the AppArmor profile",
+          );
+      },
     );
-  },
-);
 
-// @lat: [[desktop-updates#Desktop Updates#Stable and beta release channels#Linux package sandbox and AppArmor#Unsupported AppArmor]]
-it.each([{ enabled: false }, { compatible: false }])(
-  "skips unavailable/unsupported AppArmor without loading it ($enabled/$compatible)",
-  async (options) => {
-    const fixture = await runHook("deb", options);
-    expect(fixture.result.status).toBe(0);
-    expect(existsSync(fixture.installed)).toBe(false);
-    expect(fixture.commands).not.toContain("--replace");
-    if (options.compatible === false)
-      expect(fixture.result.stdout).toContain(
-        "Skipping the installation of the AppArmor profile",
-      );
-  },
-);
+    // @lat: [[desktop-updates#Desktop Updates#Stable and beta release channels#Linux package sandbox and AppArmor#Image-building chroot]]
+    it("copies the compatible profile without loading host policy in a chroot", async () => {
+      const fixture = await runHook("deb", { chroot: true });
+      expect(fixture.result.status).toBe(0);
+      expect(readFileSync(fixture.installed, "utf8")).toBe(fixture.profile);
+      expect(fixture.commands).toContain("ischroot");
+      expect(fixture.commands).not.toContain("--replace");
+    });
 
-// @lat: [[desktop-updates#Desktop Updates#Stable and beta release channels#Linux package sandbox and AppArmor#Image-building chroot]]
-it("copies the compatible profile without loading host policy in a chroot", async () => {
-  const fixture = await runHook("deb", { chroot: true });
-  expect(fixture.result.status).toBe(0);
-  expect(readFileSync(fixture.installed, "utf8")).toBe(fixture.profile);
-  expect(fixture.commands).toContain("ischroot");
-  expect(fixture.commands).not.toContain("--replace");
-});
+    // @lat: [[desktop-updates#Desktop Updates#Stable and beta release channels#Linux package sandbox and AppArmor#Real load failures remain visible]]
+    it("reports a supported profile's actual load failure instead of treating it as unsupported", async () => {
+      const fixture = await runHook("deb", { loadFailure: true });
+      expect(fixture.result.status).toBe(7);
+      expect(existsSync(fixture.installed)).toBe(true);
+      expect(fixture.commands).toContain("--replace");
+    });
 
-// @lat: [[desktop-updates#Desktop Updates#Stable and beta release channels#Linux package sandbox and AppArmor#Real load failures remain visible]]
-it("reports a supported profile's actual load failure instead of treating it as unsupported", async () => {
-  const fixture = await runHook("deb", { loadFailure: true });
-  expect(fixture.result.status).toBe(7);
-  expect(existsSync(fixture.installed)).toBe(true);
-  expect(fixture.commands).toContain("--replace");
-});
-
-// @lat: [[desktop-updates#Desktop Updates#Stable and beta release channels#Linux package sandbox and AppArmor#Conditional sandbox permission]]
-it.each([
-  { userns: true, mode: "0755" },
-  { userns: false, mode: "4755" },
-])(
-  "uses sandbox mode $mode when user namespaces are $userns",
-  async ({ userns, mode }) => {
-    const fixture = await runHook("rpm", { userns });
-    expect(fixture.result.status).toBe(0);
-    expect(fixture.commands).toContain(
-      `chmod\t${mode} ${fixture.install}/chrome-sandbox`,
+    // @lat: [[desktop-updates#Desktop Updates#Stable and beta release channels#Linux package sandbox and AppArmor#Conditional sandbox permission]]
+    it.each([
+      { userns: true, mode: "0755" },
+      { userns: false, mode: "4755" },
+    ])(
+      "uses sandbox mode $mode when user namespaces are $userns",
+      async ({ userns, mode }) => {
+        const fixture = await runHook("rpm", { userns });
+        expect(fixture.result.status).toBe(0);
+        expect(fixture.commands).toContain(
+          `chmod\t${mode} ${fixture.install}/chrome-sandbox`,
+        );
+      },
     );
   },
 );
