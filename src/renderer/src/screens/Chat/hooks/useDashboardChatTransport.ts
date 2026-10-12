@@ -219,6 +219,12 @@ export function isDashboardSessionNotFoundError(err: unknown): boolean {
   return /session not found/i.test(message);
 }
 
+// @lat: [[chat-commands#Busy refusal preserves conversation]]
+function isDashboardSessionBusyError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /\bsession (?:is )?busy\b/i.test(message);
+}
+
 export function isDashboardSlashWorkerExitError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
   return /slash worker exited/i.test(message);
@@ -2173,11 +2179,15 @@ export function useDashboardChatTransport({
         if (activeTurn) activeTurn.status = "failed";
         if (pendingApprovalsRef.current.length) {
           expirePendingApprovalsRef.current();
-          void clientRef.current
-            ?.request("session.interrupt", {
-              session_id: runtimeSessionIdRef.current,
-            })
-            .catch(() => undefined);
+          // A busy refusal did not admit this turn. Do not interrupt the
+          // upstream work that owns the runtime merely to retire our UI error.
+          if (!isDashboardSessionBusyError(message)) {
+            void clientRef.current
+              ?.request("session.interrupt", {
+                session_id: runtimeSessionIdRef.current,
+              })
+              .catch(() => undefined);
+          }
         }
         setMessages((prev) => markActiveTurnFailed(prev, message, activeTurn));
         const storedSessionId = storedSessionIdRef.current;
@@ -2327,7 +2337,9 @@ export function useDashboardChatTransport({
       } catch (err) {
         if (!ownsSubmission()) return retireSupersededSubmission();
         appliedModelRef.current = null;
-        recreateRuntimeSessionRef.current = true;
+        // Busy is an admission refusal, not a failed provider runtime. Keep
+        // the resumed conversation so a later retry cannot fork its history.
+        recreateRuntimeSessionRef.current = !isDashboardSessionBusyError(err);
         const message = err instanceof Error ? err.message : String(err);
         return failActiveTurn(message);
       }
