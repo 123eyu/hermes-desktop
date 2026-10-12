@@ -68,7 +68,7 @@ Instead of managing the CLI by hand, the app walks through install, provider set
 
 Download the desktop app for your operating system from [hermesone.org](https://hermesone.org) or [GitHub Releases](https://github.com/fathah/hermes-desktop/releases). `npm install hermes-desktop` is not a supported desktop app installation method.
 
-To run or build the source, clone this repository and follow the [Contributing Guide](CONTRIBUTING.md#getting-started). Its `npm install` step installs dependencies inside the source checkout.
+To run the app in development, clone this repository and follow the [Contributing Guide](CONTRIBUTING.md#getting-started). Its `npm install` step installs dependencies inside the source checkout.
 
 <details>
 <summary>Windows</summary>

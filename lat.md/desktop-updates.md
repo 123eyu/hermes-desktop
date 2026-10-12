@@ -12,7 +12,7 @@ When GitHub reports a newer release, [[src/renderer/src/screens/Layout/Layout.ts
 
 Desktop users install release downloads. npm commands apply to source dependencies and development, rather than a supported desktop app package installed from the registry.
 
-[README](../README.md) directs users to the project download site or GitHub Releases and distinguishes them from the source-checkout commands in the [Contributing Guide](../CONTRIBUTING.md). The package name in `package.json` is build metadata, not an app installation command. Release workflows and `electron-builder.yml` remain the distribution source of truth.
+[README](../README.md) directs users to the project download site or GitHub Releases and distinguishes them from the source-checkout commands in the [Contributing Guide](../CONTRIBUTING.md). The README promises the guide's existing dependency and development commands (`npm install`, `npm run dev`), without implying the guide also documents source builds. The package name in `package.json` is build metadata, not an app installation command. Release workflows and `electron-builder.yml` remain the distribution source of truth.
 
 ## Stable and beta release channels
 
