@@ -52,4 +52,32 @@ Electron Builder explicitly unpacks `node_modules/better-sqlite3/prebuilds/*.nod
 
 Linux packages use the space-free `/opt/HermesOne` directory while macOS keeps the existing `Hermes One.app` bundle and executable name. RPM filenames retain the `.rpm` extension expected by release uploads.
 
-The global packaging product name supplies Electron Builder's Linux install-directory component. The explicit macOS `executableName` preserves its bundle path, and platform display labels retain Hermes One. The Linux sandbox hook targets the same directory. [[tests/packaging-identity.test.ts]] validates the configuration with the installed Electron Builder schema and evaluates its real application metadata and artifact macros.
+The global packaging product name supplies Electron Builder's Linux install-directory component. The explicit macOS `executableName` preserves its bundle path, and platform display labels retain Hermes One. Linux package setup uses the builder's default hooks. [[tests/packaging-identity.test.ts]] validates the configuration with the installed Electron Builder schema and evaluates its real application metadata and artifact macros.
+
+### Linux package sandbox and AppArmor
+
+DEB and RPM packages use Electron Builder's complete default post-install hook so compatible AppArmor policy is installed alongside sandbox permissions and desktop integration.
+
+The builder supplies `resources/apparmor-profile`, validates it against the installed parser, copies compatible policy into `/etc/apparmor.d/hermes-desktop`, and reloads it outside chroots. Disabled AppArmor and unsupported older parsers skip policy installation. Working user namespaces keep `chrome-sandbox` at 0755; other hosts use its SUID mode. The previous custom hook replaced this setup with an unconditional permission change and omitted policy installation.
+
+[[tests/linux-post-install.test.ts]] generates the actual DEB/RPM scripts through the installed builder and executes them with temporary paths and harmless command fixtures. No system policy, package installation, or native Ubuntu launch is exercised; packaged Ubuntu 24.04 acceptance remains necessary.
+
+#### Compatible profile installation
+
+Both actual generated package hooks copy the exact bundled profile bytes and load the installed policy after parser compatibility succeeds.
+
+#### Unsupported AppArmor
+
+Disabled AppArmor and an incompatible parser skip policy copying and kernel loading without turning a platform compatibility skip into a package failure.
+
+#### Image-building chroot
+
+A compatible profile is copied into an image-building chroot while kernel loading is skipped, preserving the host's policy state.
+
+#### Real load failures remain visible
+
+A compatible policy that fails actual kernel loading retains its nonzero result, rather than being silently treated as an unsupported parser.
+
+#### Conditional sandbox permission
+
+Working user namespaces preserve sandbox mode 0755, while unavailable namespaces select the SUID mode needed by Chromium's alternate sandbox path.
