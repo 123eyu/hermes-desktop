@@ -4,7 +4,6 @@ import { posix } from "path";
 export const REGISTRY_COMMIT = "9eac45a2beba230414b9bcf2041b5ff407d3c935";
 export const REGISTRY_TREE = "a6cd718e31c378760832f9a5980d045fef96cdd4";
 const REPO = "fathah/hermes-registry";
-const TTL_MS = 60 * 60 * 1000;
 interface Entry {
   path: string;
   mode: string;
@@ -106,8 +105,7 @@ export class VerifiedRegistrySnapshot {
   ) {}
 
   private async tree(): Promise<Map<string, Entry>> {
-    if (this.cached && Date.now() - this.cached.at < TTL_MS)
-      return this.cached.entries;
+    if (this.cached) return this.cached.entries;
     if (this.pending) return this.pending;
     this.pending = (async () => {
       const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;

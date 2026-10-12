@@ -117,4 +117,36 @@ describe("reviewed registry snapshot", () => {
     expect(await client.readOptionalText("entry/missing.md")).toBeNull();
     await expect(client.readText("entry/../escape")).rejects.toThrow("Unsafe");
   });
+  it("retains its verified immutable tree after an hour and API failure", async () => {
+    const f = fixture();
+    let unavailable = false;
+    const request = vi.fn(async (input: Parameters<typeof fetch>[0]) => {
+      const url = String(input);
+      if (url.includes("api.github.com"))
+        return unavailable
+          ? new Response("rate limited", { status: 429 })
+          : Response.json(f.tree);
+      return new Response(url.endsWith("a.md") ? f.a : f.b);
+    });
+    const client = new VerifiedRegistrySnapshot(
+      "a".repeat(40),
+      f.root,
+      request,
+    );
+    expect(await client.readText("entry/a.md")).toBe(f.a.toString());
+    unavailable = true;
+    const now = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(Date.now() + 2 * 60 * 60 * 1000);
+    try {
+      expect(await client.readText("entry/a.md")).toBe(f.a.toString());
+      expect(
+        request.mock.calls.filter(([url]) =>
+          String(url).includes("api.github.com"),
+        ),
+      ).toHaveLength(1);
+    } finally {
+      now.mockRestore();
+    }
+  });
 });
