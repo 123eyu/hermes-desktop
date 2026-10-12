@@ -16,9 +16,11 @@ Default is passed explicitly to prevent later sticky-profile selection from reta
 
 ## Local target isolation
 
-Remote and SSH selections cannot silently restore local data; switching away from Local during the native warning cancels the operation.
+Remote and SSH selections cannot silently restore local data; after consent, the operation cancels if the current connection is no longer Local.
 
 Switching between Local records does not retarget the approved profile: the restore always uses the profile captured before confirmation.
+
+The mode is checked before and after the warning; the operation does not record intervening connection switches.
 
 ## CLI failure diagnostics
 
