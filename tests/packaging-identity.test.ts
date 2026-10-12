@@ -36,13 +36,12 @@ describe("platform packaging identity", () => {
     expect(verifier).toContain(`${app.productFilename}.app`);
   });
 
-  it("keeps the Linux install and sandbox hook paths aligned without spaces", () => {
+  it("keeps the Linux install path space-free and delegates package setup to the builder", () => {
     const app = new AppInfo(packager, undefined, config.linux);
     const installPath = `${installPrefix}/${app.sanitizedProductName}`;
     expect(installPath).toBe("/opt/HermesOne");
-    expect(
-      readFileSync(join(root, "build/linux-after-install.sh"), "utf8"),
-    ).toContain(`SANDBOX="${installPath}/chrome-sandbox"`);
+    expect(config.deb?.afterInstall).toBeUndefined();
+    expect(config.rpm?.afterInstall).toBeUndefined();
   });
 
   it("produces an RPM filename matched by release upload globs", () => {

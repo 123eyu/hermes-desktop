@@ -79,6 +79,21 @@ function readStoredCeo(): string | null {
  */
 function Office({ visible, profile }: OfficeProps): React.JSX.Element {
   const { t } = useI18n();
+  // @lat: [[office-rendering#Render lifetime]]
+  const [documentVisible, setDocumentVisible] = useState(
+    () => document.visibilityState === "visible",
+  );
+  useEffect(() => {
+    const updateVisibility = (): void => {
+      setDocumentVisible(document.visibilityState === "visible");
+    };
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", updateVisibility);
+    };
+  }, []);
+  const renderingActive = (visible ?? true) && documentVisible;
   const [agents, setAgents] = useState<OfficeAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -600,6 +615,7 @@ function Office({ visible, profile }: OfficeProps): React.JSX.Element {
 
       <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
         <Office3D
+          active={renderingActive}
           agents={positionedAgents}
           selectedId={selectedId}
           onSelectAgent={setSelectedId}

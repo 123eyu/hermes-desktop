@@ -36,6 +36,8 @@ This directory defines the high-level concepts, business logic, and architecture
 - [[speech-playback-tests]] — actual speech IPC and message lifecycle regressions.
 - [[wallet-token-balances]] — profile-scoped Base mainnet wallets with encrypted recovery phrases, and on-chain ERC-20 token balance reads via ethers v6.
 - [[office-3d-traffic]] — the Office tab's backdrop traffic: car-following and junction-yielding simulation, per-model nose orientation, and instanced fleet rendering in a dozen draw calls.
+- [[office-rendering]] — pause the retained Office Canvas while its pane or document is hidden.
+- [[office-rendering-tests]] — verify Office render, retained scene and visibility-listener lifetimes.
 - [[office-3d-interiors]] — enterable office/bank/showroom interiors: per-location conditional mounting (city unmounts while indoors), camera fly-in rig, interactable objects (ATM → wallet, desk → agent, car → spec card), and idle-agent walking trips between buildings.
 - [[office-3d-walk-mode]] — GTA-style walk mode: glass roofs over the enterable buildings, the user's own third-person avatar (WASD + chase camera, shared crowd/collision), doorway-driven interior loading, and proximity Press-E interactions.
 - [[office-interactions]] — space representatives: interactive bank tellers whose menu runs account status, balances, and account creation against the hermes-one backend for a chosen agent; the extensible pattern for future spaces (showroom sales, building space).
