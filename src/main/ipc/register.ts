@@ -912,11 +912,19 @@ export function registerIpcHandlers(context: IpcContext): void {
         requestId.length <= 128
           ? { requestId }
           : {};
+      const sendProgress = (progress: InstallProgress): void => {
+        // Progress is best effort: closing a window must not abort its update.
+        try {
+          if (!event.sender.isDestroyed())
+            event.sender.send("install-progress", { ...progress, ...owner });
+        } catch {
+          // The receiver can disappear between the lifetime check and send.
+        }
+      };
       let updateLog = "";
       const phase = (title: string, detail: string): void => {
         updateLog += detail + "\n";
-        event.sender.send("install-progress", {
-          ...owner,
+        sendProgress({
           operation: "update",
           step: 0,
           totalSteps: 0,
@@ -965,7 +973,7 @@ export function registerIpcHandlers(context: IpcContext): void {
       }
       await runHermesUpdate((progress: InstallProgress) => {
         updateLog = progress.log;
-        event.sender.send("install-progress", { ...progress, ...owner });
+        sendProgress(progress);
       });
       phase(
         "Checking dashboard compatibility",

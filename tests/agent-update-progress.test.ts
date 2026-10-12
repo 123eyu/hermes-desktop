@@ -83,6 +83,7 @@ it("emits real SSH phases before their operations and never measures the pending
   });
   const pending = run({
     sender: {
+      isDestroyed: () => false,
       send: (_channel: string, progress: (typeof updates)[number]) =>
         updates.push(progress),
     },
@@ -124,7 +125,9 @@ it("keeps remote update refusal free of local or SSH updater operations", async 
     runHermesUpdate: update,
     sshRunUpdate: update,
   });
-  expect(await run({ sender: { send } })).toMatchObject({ success: false });
+  expect(
+    await run({ sender: { send, isDestroyed: () => false } }),
+  ).toMatchObject({ success: false });
   expect(update).not.toHaveBeenCalled();
   expect(send).not.toHaveBeenCalled();
 });
@@ -148,11 +151,159 @@ it("echoes only the supplied update owner while retaining legacy callers", async
       clearAgentCapabilityEvidence: vi.fn(),
       getActiveConnection: () => ({ connectionId: "local-fixture" }),
     });
-    expect(await run({ sender: { send } }, owner)).toEqual({ success: true });
+    expect(
+      await run({ sender: { send, isDestroyed: () => false } }, owner),
+    ).toEqual({ success: true });
     expect(send.mock.calls).toHaveLength(2);
     for (const [, progress] of send.mock.calls) {
       if (owner) expect(progress.requestId).toBe(owner);
       else expect(progress).not.toHaveProperty("requestId");
     }
   }
+});
+
+function sshUpdateFixture(
+  operation: (name: string) => Promise<void>,
+): Record<string, unknown> {
+  return {
+    getConnectionConfig: () => ({
+      mode: "ssh",
+      ssh: { host: "isolated.example" },
+    }),
+    sshRunUpdate: () => operation("update"),
+    ensureSshDashboardCompatibility: async () => {
+      await operation("compatibility");
+      return { ok: true };
+    },
+    sshStartGateway: () => operation("gateway"),
+    startSshTunnel: () => operation("tunnel"),
+    sshReadRemoteApiKey: async () => {
+      await operation("credential");
+      return " fixture-key ";
+    },
+    setSshRemoteApiKey: vi.fn(),
+    clearAgentCapabilityEvidence: vi.fn(),
+    getActiveConnection: () => ({ connectionId: "ssh-fixture" }),
+  };
+}
+
+// @lat: [[desktop-updates#Agent phases#Closed windows do not interrupt SSH follow-up]]
+it.each(["update", "compatibility", "gateway", "tunnel"])(
+  "finishes SSH follow-up when the window closes during %s",
+  async (closingOperation) => {
+    let finish!: () => void;
+    let admitted!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      admitted = resolve;
+    });
+    const calls: string[] = [];
+    let destroyed = false;
+    const scope = sshUpdateFixture(async (name) => {
+      calls.push(name);
+      if (name === closingOperation) {
+        admitted();
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+      }
+    });
+    const send = vi.fn(() => {
+      if (destroyed) throw new Error("Object has been destroyed");
+    });
+    const pending = handler(scope)({
+      sender: { isDestroyed: () => destroyed, send },
+    });
+    await entered;
+    const sentBeforeClose = send.mock.calls.length;
+    destroyed = true;
+    finish();
+    expect(await pending).toEqual({ success: true });
+    expect(calls).toEqual([
+      "update",
+      "compatibility",
+      "gateway",
+      "tunnel",
+      "credential",
+    ]);
+    expect(send).toHaveBeenCalledTimes(sentBeforeClose);
+    expect(scope.setSshRemoteApiKey).toHaveBeenCalledWith("fixture-key");
+    expect(scope.clearAgentCapabilityEvidence).toHaveBeenCalledWith(
+      "ssh-fixture",
+    );
+  },
+);
+
+// @lat: [[desktop-updates#Agent phases#Progress delivery races are best effort]]
+it("finishes SSH follow-up if a sender disappears between its live check and send", async () => {
+  let throws = false;
+  const calls: string[] = [];
+  const scope = sshUpdateFixture(async (name) => {
+    calls.push(name);
+    if (name === "update") throws = true;
+  });
+  const send = vi.fn(() => {
+    if (throws) throw new Error("Object has been destroyed");
+  });
+  expect(
+    await handler(scope)({ sender: { isDestroyed: () => false, send } }),
+  ).toEqual({ success: true });
+  expect(calls).toEqual([
+    "update",
+    "compatibility",
+    "gateway",
+    "tunnel",
+    "credential",
+  ]);
+  expect(scope.setSshRemoteApiKey).toHaveBeenCalledWith("fixture-key");
+});
+
+// @lat: [[desktop-updates#Agent phases#Closed windows do not interrupt Local validation]]
+it("keeps Local command output and validation running after the window closes", async () => {
+  let destroyed = false;
+  const compatibility = vi.fn(() => ({ ok: true }));
+  const clear = vi.fn();
+  const run = handler({
+    getConnectionConfig: () => ({ mode: "local" }),
+    runHermesUpdate: async (emit: (p: unknown) => void) => {
+      destroyed = true;
+      emit({
+        operation: "update",
+        step: 0,
+        totalSteps: 0,
+        title: "Updating",
+        detail: "output",
+        log: "output",
+      });
+    },
+    ensureLocalDashboardCompatibility: compatibility,
+    clearAgentCapabilityEvidence: clear,
+    getActiveConnection: () => ({ connectionId: "local-fixture" }),
+  });
+  const send = vi.fn(() => {
+    throw new Error("Object has been destroyed");
+  });
+  expect(await run({ sender: { isDestroyed: () => destroyed, send } })).toEqual(
+    { success: true },
+  );
+  expect(send).not.toHaveBeenCalled();
+  expect(compatibility).toHaveBeenCalledOnce();
+  expect(clear).toHaveBeenCalledWith("local-fixture");
+});
+
+// @lat: [[desktop-updates#Agent phases#Operation errors remain failures without a window]]
+it("reports real SSH operation failures even when progress has no receiver", async () => {
+  const calls: string[] = [];
+  const scope = sshUpdateFixture(async (name) => {
+    calls.push(name);
+    if (name === "compatibility") throw new Error("SSH compatibility failed");
+  });
+  const send = vi.fn(() => {
+    throw new Error("Object has been destroyed");
+  });
+  expect(
+    await handler(scope)({ sender: { isDestroyed: () => true, send } }),
+  ).toEqual({ success: false, error: "SSH compatibility failed" });
+  expect(calls).toEqual(["update", "compatibility"]);
+  expect(scope.setSshRemoteApiKey).not.toHaveBeenCalled();
+  expect(scope.clearAgentCapabilityEvidence).not.toHaveBeenCalled();
 });

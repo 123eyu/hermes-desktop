@@ -44,6 +44,8 @@ Agent install and update steps describe subprocess phases, not measured work per
 
 [[src/main/installer.ts#runHermesUpdate]] emits update-scoped output with unknown step totals while its command runs. [[src/main/ipc/register.ts#registerIpcHandlers]] announces real SSH update, compatibility, gateway, tunnel and connection-refresh operations before awaiting them. Local updates announce compatibility validation after the command exits.
 
+Progress delivery is best effort. A closed or disappearing window cannot interrupt compatibility validation, gateway startup, tunnel reconnection or credential refresh. Delivery failures are isolated from real operation errors, which still fail the update result.
+
 [[src/renderer/src/components/settings/useSettingsData.ts#useSettingsData]] owns an update-only progress subscription correlated with a fresh opaque request ID, rejects late profile or connection reads and releases its listener after completion or unmount. About shows the captured phase and detail. [[src/renderer/src/screens/Install/Install.tsx#Install]] keeps phase labels but presents no running percentage; only its successful result reaches 100 percent.
 
 Phase visibility does not claim that upstream dependency work is incremental or optimized. Installer output remains diagnostic evidence, and the original efficiency reports need separate verification.
@@ -83,6 +85,22 @@ The actual update IPC handler emits each SSH phase before its operation and keep
 ### Remote update refusal remains read-only
 
 The direct Remote mode keeps its existing host-side update guidance and never starts a local or SSH update through the desktop.
+
+### Closed windows do not interrupt SSH follow-up
+
+Closing the window during each awaited SSH update stage skips later UI delivery while compatibility, gateway, tunnel and credential work completes normally.
+
+### Progress delivery races are best effort
+
+A sender that disappears between its live check and send cannot abort update follow-up. Only progress delivery exceptions are discarded.
+
+### Closed windows do not interrupt Local validation
+
+Local command output remains safe after its window closes, and the update still validates compatibility and clears capability evidence.
+
+### Operation errors remain failures without a window
+
+The actual update callback still reports a failing SSH operation when no progress receiver remains; it neither hides the error nor runs unsafe later stages.
 
 ### Local command is not measured progress
 
