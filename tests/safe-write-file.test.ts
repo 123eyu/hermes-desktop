@@ -29,4 +29,10 @@ describe("safeWriteFile", () => {
       [],
     );
   });
+  it("preserves verified binary payloads byte-for-byte", () => {
+    const filePath = join(TEST_DIR, "binary", "payload.bin");
+    const bytes = Buffer.from([0, 255, 128, 13, 10]);
+    safeWriteFile(filePath, bytes);
+    expect(readFileSync(filePath)).toEqual(bytes);
+  });
 });

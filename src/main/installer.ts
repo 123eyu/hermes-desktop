@@ -1,3 +1,4 @@
+import { verifiedWindowsInstallerScript } from "./installer-windows-download";
 import { discoverMemoryProviderDirectories } from "./memory-provider-discovery";
 import { getYamlPath } from "./yaml-path";
 import { buildInstallErrorMessage } from "./installer-errors";
@@ -352,6 +353,8 @@ function activeAuthFile(profile: string): string {
 // See issue #236.
 const PROVIDER_ENV_KEYS: Record<string, string> = {
   openrouter: "OPENROUTER_API_KEY",
+  "opencode-zen": "OPENCODE_ZEN_API_KEY",
+  "opencode-go": "OPENCODE_GO_API_KEY",
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
   "ollama-cloud": "OLLAMA_API_KEY",
@@ -1059,11 +1062,6 @@ export async function runInstall(
   }
 }
 
-// PS single-quoted string escape: ' → ''
-function psQuote(s: string): string {
-  return `'${s.replace(/'/g, "''")}'`;
-}
-
 // Resolve a powershell executable. Prefer PowerShell 7 (`pwsh`) when present,
 // fall back to Windows PowerShell 5.1 (`powershell.exe`). Both ship the same
 // flags we use; pwsh is faster and writes UTF-8 without a BOM by default.
@@ -1100,28 +1098,10 @@ async function runInstallWindows(emit: (t: string) => void): Promise<void> {
   // The wrapper downloads install.ps1 to a sibling temp file and invokes it
   // with our parameters. This sidesteps the `iex`-can't-pass-args limitation.
   const wrapperScript = [
-    "$ErrorActionPreference = 'Stop'",
-    `$hermesHome = ${psQuote(hermesHome)}`,
-    `$installDir = ${psQuote(installDir)}`,
-    // Force TLS 1.2 for older Windows PowerShell 5.1 hosts that still default
-    // to TLS 1.0 — github raw refuses TLS < 1.2.
-    "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}",
-    "$url = 'https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1'",
-    `$installer = Join-Path $env:TEMP ("hermes-install-script-" + [guid]::NewGuid().ToString() + ".ps1")`,
-    // Windows PowerShell 5.1 parses BOM-less files as the legacy ANSI codepage,
-    // which mangles the non-ASCII glyphs in install.ps1 and produces parse
-    // errors (see issue #149). Re-save with a UTF-8 BOM so PS 5.1 reads it as
-    // UTF-8. Idempotent if upstream later adds its own BOM or switches to ASCII.
-    "$resp = Invoke-WebRequest -Uri $url -UseBasicParsing",
-    "$text = if ($resp.Content -is [byte[]]) { [System.Text.Encoding]::UTF8.GetString($resp.Content) } else { [string]$resp.Content }",
-    "if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }",
-    "[System.IO.File]::WriteAllText($installer, $text, (New-Object System.Text.UTF8Encoding $true))",
-    "$exit = 1",
+    verifiedWindowsInstallerScript(hermesHome, installDir),
+    "# Restore sandbox-only environment changes after verified installation.",
     "try {",
-    "  & $installer -SkipSetup -NonInteractive -HermesHome $hermesHome -InstallDir $installDir",
-    "  $exit = $LASTEXITCODE",
-    "} finally {",
-    "  if ($env:HERMES_DESKTOP_SANDBOX -eq '1') {",
+    "if ($env:HERMES_DESKTOP_SANDBOX -eq '1') {",
     "    $sandboxVenv = Join-Path $installDir 'venv\\Scripts'",
     "    $userHermesHome = [Environment]::GetEnvironmentVariable('HERMES_HOME', 'User')",
     "    if ($userHermesHome -and ($userHermesHome.TrimEnd('\\') -ieq $hermesHome.TrimEnd('\\'))) {",
@@ -1132,9 +1112,8 @@ async function runInstallWindows(emit: (t: string) => void): Promise<void> {
     "      $parts = $userPath -split ';' | Where-Object { $_ -and ($_.TrimEnd('\\') -ine $sandboxVenv.TrimEnd('\\')) }",
     "      [Environment]::SetEnvironmentVariable('Path', ($parts -join ';'), 'User')",
     "    }",
-    "  }",
     "}",
-    "Remove-Item -Force -ErrorAction SilentlyContinue $installer",
+    "} catch { [Console]::Error.WriteLine('Failed to restore sandbox environment: ' + $_.Exception.Message) }",
     "exit $exit",
     "",
   ].join("\r\n");
@@ -1193,6 +1172,14 @@ async function runInstallWindows(emit: (t: string) => void): Promise<void> {
       if (code === 0) {
         emit("\nInstallation complete!\n");
         resolve();
+        return;
+      }
+      if (code === INSTALLER_VERIFICATION_FAILED) {
+        reject(
+          new Error(
+            "Installer download or checksum verification failed. Installation was not run.",
+          ),
+        );
         return;
       }
       // Same tolerance as the bash path: if the binary tree exists, count it.

@@ -90,6 +90,24 @@ A shared match-key prefix alone does not authorize a content replacement. Diverg
 
 A longer database record cannot rewrite an optimistic user submission, preserving its original visible request and attachment presentation.
 
+## Busy refusal preserves conversation
+
+A Dashboard busy refusal ends only the attempted desktop turn. Its saved conversation and runtime remain available for retry after the upstream work finishes.
+
+[[src/renderer/src/screens/Chat/hooks/useDashboardChatTransport.ts#useDashboardChatTransport]] recognizes the gateway's `session busy` refusal, including command-specific messages. It settles the attempted turn with an error without closing or recreating its runtime or automatically interrupting the upstream active turn. A retry rechecks the selected model on the same runtime. Actual failed provider turns still use the existing clean-runtime recovery path.
+
+### Saved conversation retry
+
+Actual Local, SSH and Remote hook tests resume a saved conversation, receive a busy prompt refusal and retry on the same runtime and profile without creating, closing or interrupting a session.
+
+### Busy model setup
+
+A busy model command before prompt submission preserves the existing runtime; retrying applies the model again and submits into the saved conversation.
+
+### Busy refusal never interrupts shared work
+
+A busy submission can overlap a displayed approval from upstream work. Retiring that attempted UI turn expires its stale controls without sending `session.interrupt` to the still-running session.
+
 ## Streaming source-of-truth ref
 
 `handleGatewayEvent` in [[src/renderer/src/screens/Chat/hooks/useDashboardChatTransport.ts#useDashboardChatTransport]] applies stream events against a synchronous `messagesRef`, not React state, because state lags a render behind and each successive delta must build on the previous one.

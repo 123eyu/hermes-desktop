@@ -655,6 +655,180 @@ describe("useDashboardChatTransport recovery", () => {
     vi.clearAllMocks();
   });
 
+  // @lat: [[chat-commands#Busy refusal preserves conversation#Saved conversation retry]]
+  it.each([
+    ["local", "session busy"],
+    ["ssh", "session busy — /interrupt the current turn before /model"],
+    ["remote", "session busy"],
+  ] as const)(
+    "keeps the saved conversation after a %s busy refusal",
+    async (mode, busyMessage) => {
+      let busy = true;
+      dashboardMock.request.mockImplementation(async (method) => {
+        if (method === "session.resume")
+          return {
+            session_id: "existing-runtime",
+            stored_session_id: "stored-chat",
+          };
+        if (method === "session.create")
+          return {
+            session_id: "replacement-runtime",
+            stored_session_id: "replacement-conversation",
+          };
+        if (method === "model.options")
+          return {
+            model: "bad-model",
+            provider: "bad-provider",
+            providers: [],
+          };
+        if (method === "prompt.submit" && busy) throw new Error(busyMessage);
+        return {};
+      });
+      const api: HarnessApi = {};
+      render(
+        <Harness
+          api={api}
+          hermesSessionId="stored-chat"
+          initialConnectionMode={mode}
+          profile="work"
+        />,
+      );
+      await act(async () => {
+        expect(await api.send?.("first try")).toBe(true);
+      });
+      expect(api.isLoading).toBe(false);
+      expect(api.activeTurnRef?.current).toBeNull();
+      expect(
+        api.messages?.some((m) => "error" in m && m.error === busyMessage),
+      ).toBe(true);
+      busy = false;
+      await act(async () => {
+        api.activeTurnRef!.current = { ...activeRecoveryTurn };
+        api.setMessages?.((prev) => [
+          ...prev,
+          {
+            id: "u-recovery",
+            role: "user",
+            content: "retry",
+            turnId: "turn-recovery",
+          },
+        ]);
+      });
+      await act(async () => {
+        expect(await api.send?.("retry")).toBe(true);
+      });
+      const methods = dashboardMock.request.mock.calls.map(
+        ([method]) => method,
+      );
+      expect(methods).not.toContain("session.create");
+      expect(methods).not.toContain("session.close");
+      expect(methods).not.toContain("session.interrupt");
+      expect(window.hermesAPI.recordSessionContinuation).not.toHaveBeenCalled();
+      expect(dashboardMock.request).toHaveBeenLastCalledWith("prompt.submit", {
+        session_id: "existing-runtime",
+        text: "retry",
+        profile: "work",
+      });
+    },
+  );
+
+  // @lat: [[chat-commands#Busy refusal preserves conversation#Busy model setup]]
+  it("retries model setup on the same runtime after its busy refusal", async () => {
+    let busy = true;
+    let liveModel = "other-model";
+    dashboardMock.request.mockImplementation(async (method) => {
+      if (method === "session.resume")
+        return { session_id: "existing-runtime", resumed: "stored-chat" };
+      if (method === "session.create")
+        return {
+          session_id: "replacement-runtime",
+          stored_session_id: "new-chat",
+        };
+      if (method === "model.options")
+        return {
+          model: liveModel,
+          provider: "bad-provider",
+          providers: [],
+        };
+      if (method === "slash.exec") {
+        if (busy)
+          throw new Error(
+            "session busy — /interrupt the current turn before /model",
+          );
+        liveModel = "bad-model";
+      }
+      return {};
+    });
+    const api: HarnessApi = {};
+    render(<Harness api={api} hermesSessionId="stored-chat" />);
+    await act(async () => {
+      await api.send?.("first try");
+    });
+    expect(
+      dashboardMock.request.mock.calls.map(([method]) => method),
+    ).not.toContain("prompt.submit");
+    busy = false;
+    await act(async () => {
+      api.activeTurnRef!.current = { ...activeRecoveryTurn };
+      await api.send?.("retry");
+    });
+    const methods = dashboardMock.request.mock.calls.map(([method]) => method);
+    expect(methods).not.toContain("session.create");
+    expect(methods).not.toContain("session.close");
+    expect(methods).not.toContain("session.interrupt");
+    expect(dashboardMock.request).toHaveBeenLastCalledWith("prompt.submit", {
+      session_id: "existing-runtime",
+      text: "retry",
+    });
+  });
+
+  // @lat: [[chat-commands#Busy refusal preserves conversation#Busy refusal never interrupts shared work]]
+  it("does not interrupt busy upstream work when expiring a displayed approval", async () => {
+    let rejectSubmit: ((reason: Error) => void) | undefined;
+    dashboardMock.request.mockImplementation(async (method) => {
+      if (method === "session.resume")
+        return { session_id: "existing-runtime", resumed: "stored-chat" };
+      if (method === "model.options")
+        return { model: "bad-model", provider: "bad-provider", providers: [] };
+      if (method === "prompt.submit")
+        return new Promise((_, reject) => {
+          rejectSubmit = reject;
+        });
+      return {};
+    });
+    const api: HarnessApi = {};
+    render(<Harness api={api} hermesSessionId="stored-chat" />);
+    let submitted: Promise<boolean> | undefined;
+    act(() => {
+      submitted = api.send?.("first try");
+    });
+    await waitFor(() => expect(rejectSubmit).toBeTypeOf("function"));
+    await act(async () => {
+      dashboardMock.onEvent?.({
+        type: "approval.request",
+        session_id: "existing-runtime",
+        payload: {
+          request_id: "busy-approval",
+          command: "npm publish",
+          choices: ["once"],
+        },
+      });
+    });
+    expect(api.messages?.some((m) => m.kind === "approval")).toBe(true);
+    await act(async () => {
+      rejectSubmit?.(new Error("session busy"));
+      expect(await submitted).toBe(true);
+    });
+    expect(
+      dashboardMock.request.mock.calls.map(([method]) => method),
+    ).not.toContain("session.interrupt");
+    expect(api.messages?.find((m) => m.kind === "approval")).toMatchObject({
+      unavailable: true,
+    });
+    expect(api.activeTurnRef?.current).toBeNull();
+    expect(api.isLoading).toBe(false);
+  });
+
   it("creates a clean runtime after a failed provider turn", async () => {
     const requests: Array<{ method: string; params: unknown }> = [];
     let liveModel = "bad-model";
