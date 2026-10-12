@@ -250,3 +250,72 @@ it("resumes following for a newly submitted user row after reading earlier conte
     screen.queryByRole("button", { name: "Jump to latest" }),
   ).not.toBeInTheDocument();
 });
+
+// @lat: [[chat-performance#Bottom follow ownership#Small upward gesture remains paused]]
+it.each([true, false])(
+  "keeps small upward intent paused inside the bottom tolerance (wheel=%s)",
+  (wheel) => {
+    mount();
+    const viewport = screen.getByTestId("viewport");
+    if (wheel) fireEvent.wheel(viewport, { deltaY: -10 });
+    top = 390;
+    fireEvent.scroll(viewport);
+    height = 1100;
+    resize();
+    flush();
+    expect(top).toBe(390);
+    expect(
+      screen.getByRole("button", { name: "Jump to latest" }),
+    ).toBeInTheDocument();
+    top = 790;
+    fireEvent.scroll(viewport);
+    height = 1300;
+    resize();
+    flush();
+    expect(top).toBe(1000);
+  },
+);
+
+// @lat: [[chat-performance#Bottom follow ownership#Editing keys remain with their editor]]
+it.each([
+  "input",
+  "textarea",
+  "select",
+  "contenteditable",
+  "nested-contenteditable",
+])("does not pause following for navigation keys inside %s", (kind) => {
+  mount();
+  const viewport = screen.getByTestId("viewport");
+  const editor = document.createElement(
+    kind.includes("contenteditable") ? "div" : kind,
+  );
+  if (kind.includes("contenteditable"))
+    editor.setAttribute("contenteditable", "true");
+  const target =
+    kind === "nested-contenteditable"
+      ? editor.appendChild(document.createElement("span"))
+      : editor;
+  viewport.appendChild(editor);
+  for (const key of ["ArrowUp", "PageUp", "Home", " "])
+    fireEvent.keyDown(target, { key, shiftKey: key === " " });
+  height = 1100;
+  resize();
+  flush();
+  expect(top).toBe(800);
+  expect(
+    screen.queryByRole("button", { name: "Jump to latest" }),
+  ).not.toBeInTheDocument();
+});
+
+// @lat: [[chat-performance#Bottom follow ownership#Nonediting navigation still pauses]]
+it("retains upward navigation pause outside editing fields", () => {
+  mount();
+  fireEvent.keyDown(screen.getByTestId("viewport"), { key: "Home" });
+  height = 1100;
+  resize();
+  flush();
+  expect(top).toBe(400);
+  expect(
+    screen.getByRole("button", { name: "Jump to latest" }),
+  ).toBeInTheDocument();
+});

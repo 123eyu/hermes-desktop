@@ -69,8 +69,8 @@ export function useChatScroll(
       const top = container.scrollTop;
       const atBottom =
         container.scrollHeight - top - container.clientHeight < 60;
-      if (atBottom) follow(true);
-      else if (top < previousTopRef.current) pause();
+      if (top < previousTopRef.current) pause();
+      else if (atBottom && top > previousTopRef.current) follow(true);
       // Height growth alone does not imply a change in the reader's intent.
       previousTopRef.current = top;
     };
@@ -79,6 +79,13 @@ export function useChatScroll(
         pause();
     };
     const handleKey = (event: KeyboardEvent): void => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false" i])',
+        )
+      )
+        return;
       if (
         ["ArrowUp", "PageUp", "Home"].includes(event.key) ||
         (event.key === " " && event.shiftKey)
