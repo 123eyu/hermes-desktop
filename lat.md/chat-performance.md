@@ -45,6 +45,8 @@ Following output is reader intent, not a fresh distance check after every layout
 
 A growing row can increase the bottom distance without changing row count or scroll position; that alone does not revoke following. Upward scrolling or upward wheel/keyboard input pauses it. Scrolling back within the bottom threshold, submitting a new user turn, or pressing Jump to latest resumes it. The wrapper retains existing block flow and history-window ancestors, with the return control outside the observed content so showing it cannot change transcript height. It uses the English resource with the existing locale fallback policy.
 
+Only an empty transcript gives its wrapper a definite viewport height, preserving the existing empty Chat centering. Message-bearing content keeps natural block height so resize observation detects growth; the new wrapper does not reintroduce a flex transcript layout.
+
 ### Smooth intermediate positions retain following
 
 Actual hook tests simulate native intermediate smooth-scroll events and successive same-row token updates. The latest coalesced bottom target remains visible rather than leaving the stream at its obsolete animation target.

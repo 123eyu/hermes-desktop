@@ -4907,6 +4907,10 @@ body:has(.shell-vibrant),
   min-height: 100%;
 }
 
+.chat-transcript:has(> .chat-empty) {
+  height: 100%;
+}
+
 .chat-jump-latest {
   position: absolute;
   bottom: 12px;

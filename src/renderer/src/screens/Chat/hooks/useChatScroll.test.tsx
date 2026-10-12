@@ -18,7 +18,13 @@ const observers: Array<{
   disconnected: boolean;
 }> = [];
 
-function Harness({ scope = "first", rows = messages }): React.JSX.Element {
+function Harness({
+  scope = "first",
+  rows = messages,
+}: {
+  scope?: string;
+  rows?: ChatMessage[];
+}): React.JSX.Element {
   const api = useChatScroll(rows, scope);
   return (
     <>
