@@ -37,6 +37,46 @@ Two timing rules keep this correct:
 
 Windowing behavior is specified by [[src/renderer/src/screens/Chat/MessageList.test.tsx]].
 
+## Bottom follow ownership
+
+Following output is reader intent, not a fresh distance check after every layout change. The chat stays at the latest output until the reader scrolls upward, and offers an explicit return control.
+
+[[src/renderer/src/screens/Chat/hooks/useChatScroll.ts#useChatScroll]] observes both the viewport and the block-flow transcript wrapper. Streaming commits and asynchronous media, folding, viewport, and content-visibility layout changes schedule at most one animation-frame write using the latest container dimensions. History loads still jump instantly before transcript expansion observers run. Programmatic streaming writes are instant rather than smooth, so intermediate animation positions cannot falsely disable follow.
+
+A growing row can increase the bottom distance without changing row count or scroll position; that alone does not revoke following. Upward scrolling or upward wheel/keyboard input pauses it. Scrolling back within the bottom threshold, submitting a new user turn, or pressing Jump to latest resumes it. The wrapper retains existing block flow and history-window ancestors, with the return control outside the observed content so showing it cannot change transcript height. It uses the English resource with the existing locale fallback policy.
+
+### Smooth intermediate positions retain following
+
+Actual hook tests simulate native intermediate smooth-scroll events and successive same-row token updates. The latest coalesced bottom target remains visible rather than leaving the stream at its obsolete animation target.
+
+### Existing rows and viewport resizing
+
+An unchanged message array can gain height asynchronously. Observing content and viewport bounds follows that growth while coalescing repeated notifications into one frame.
+
+### Reading earlier output and explicit return
+
+Intentional upward scrolling preserves the earlier viewport through content growth. Jump to latest resumes following and subsequent resize updates stay pinned.
+
+### Native bottom re-entry
+
+A reader who scrolls back to the bottom resumes following without needing the return control, preserving native scrollbar behavior.
+
+### Scope and unmount cleanup
+
+Conversation, connection, profile, and accepted settings changes establish a fresh scroll scope. Old observers, listeners, and scheduled frames are disconnected or cancelled before new history pinning or unmount.
+
+### Upward input cancels queued follow
+
+Upward wheel input can precede its native scroll event. It cancels the pending following frame immediately so a queued layout update cannot defeat the reader's gesture.
+
+### New user turn resumes following
+
+Adding a newly submitted user row resumes following after reading older content, preserving the existing send behavior.
+
+### Actual Chat control and transcript observation
+
+The actual Chat component supplies the viewport and transcript observer refs and scope. Its return control preserves a paused viewport, jumps to the current bottom, disappears when following resumes, and releases its observer on unmount.
+
 ## Streaming delta coalescing
 
 Streaming events arrive many times per second and each `setMessages` costs a window reconciliation, so the dashboard transport applies deltas to the transcript ref synchronously and commits to React once per animation frame at most.
