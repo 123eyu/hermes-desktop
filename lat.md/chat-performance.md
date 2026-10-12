@@ -91,6 +91,10 @@ Bubbled navigation keys from input, textarea, select and nested contenteditable 
 
 Upward navigation outside an editing control continues to pause following, retaining native keyboard reading behavior.
 
+### Native bottom clamp retains following
+
+Content-visibility layout can shrink absolute scrollTop while clamping the view at its actual bottom. A subpixel bottom correction retains follow; a small upward reading gap remains paused.
+
 ## Streaming delta coalescing
 
 Streaming events arrive many times per second and each `setMessages` costs a window reconciliation, so the dashboard transport applies deltas to the transcript ref synchronously and commits to React once per animation frame at most.

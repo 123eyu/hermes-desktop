@@ -319,3 +319,21 @@ it("retains upward navigation pause outside editing fields", () => {
     screen.getByRole("button", { name: "Jump to latest" }),
   ).toBeInTheDocument();
 });
+
+// @lat: [[chat-performance#Bottom follow ownership#Native bottom clamp retains following]]
+it.each([0, 0.5])(
+  "keeps following when native layout clamps the viewport at its actual bottom (rounding=%s)",
+  (rounding) => {
+    mount();
+    height = 650;
+    top = 350 - rounding;
+    fireEvent.scroll(screen.getByTestId("viewport"));
+    height = 1100;
+    resize();
+    flush();
+    expect(top).toBe(800);
+    expect(
+      screen.queryByRole("button", { name: "Jump to latest" }),
+    ).not.toBeInTheDocument();
+  },
+);

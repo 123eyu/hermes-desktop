@@ -67,10 +67,13 @@ export function useChatScroll(
     };
     const handleScroll = (): void => {
       const top = container.scrollTop;
-      const atBottom =
-        container.scrollHeight - top - container.clientHeight < 60;
-      if (top < previousTopRef.current) pause();
-      else if (atBottom && top > previousTopRef.current) follow(true);
+      const bottomDistance =
+        container.scrollHeight - top - container.clientHeight;
+      // Lazy row sizing can clamp scrollTop downward at the actual bottom.
+      // That correction is not upward reading; allow subpixel rounding only.
+      if (top < previousTopRef.current && bottomDistance >= 1) pause();
+      else if (bottomDistance < 60 && top > previousTopRef.current)
+        follow(true);
       // Height growth alone does not imply a change in the reader's intent.
       previousTopRef.current = top;
     };
